@@ -24,24 +24,22 @@ const db = mysql.createPool({
     database: process.env.DB_NAME,
     port: Number(process.env.DB_PORT || 3306),
     connectTimeout: 10000,
+    // Enable SSL for hosted DB providers when needed.
     ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined
-});
+})
 
-const getPosts = (req, res) => {
-    const sql = "SELECT * FROM posts WHERE deleted_at IS NULL ORDER BY created_at DESC";
+app.get("/blog_articles", (req, res) => {
+    const sql = "SELECT * FROM blog_articles";
     db.query(sql, (err, data) => {
         if (err) return res.status(500).json(err);
         return res.json(data);
-    });
-};
-
-app.get("/posts", getPosts);
-app.get("/blog_articles", getPosts);
+    })
+})
 
 app.get("/health", (req, res) => {
     res.json({ ok: true });
-});
+})
 
 app.listen(port, () => {
     console.log(`Listening on port ${port}...`);
-});
+})
