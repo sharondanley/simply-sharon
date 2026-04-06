@@ -931,7 +931,7 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
         <h2 className="text-2xl font-bold font-['Source_Sans_3'] text-black mb-6 text-center">Sign In</h2>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-base font-semibold font-['Source_Sans_3'] text-gray-800 mb-2">Username</label>
+            <label className="block text-base font-semibold font-['Source_Sans_3'] text-gray-800 mb-2">Email or Username</label>
             <input
               type="text"
               value={username}
@@ -939,7 +939,7 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
               autoComplete="username"
               required
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-['Source_Sans_3'] text-base focus:outline-none focus:border-black transition-colors"
-              placeholder="Enter username"
+              placeholder="Enter email or username"
             />
           </div>
           <div>

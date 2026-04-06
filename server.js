@@ -89,8 +89,8 @@ app.post('/api/auth/login', async (req, res) => {
 
     try {
         const [rows] = await dbPromise.query(
-            'SELECT id, name, email, role, password_hash FROM users WHERE email = ? LIMIT 1',
-            [username]
+            'SELECT id, name, email, role, password_hash FROM users WHERE email = ? OR name = ? LIMIT 1',
+            [username, username]
         );
         const user = rows[0];
 
@@ -147,15 +147,30 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     const offset = (page - 1) * limit;
 
     try {
-        const [items] = await dbPromise.query(
-            `SELECT id, slug, title, subtitle, featured_image_url AS thumbnailUrl,
-                    topic, episode, published_at AS publishedAt
-             FROM posts
-             WHERE deleted_at IS NULL
-             ORDER BY created_at DESC
-             LIMIT ? OFFSET ?`,
-            [limit, offset]
-        );
+        let items;
+        try {
+            [items] = await dbPromise.query(
+                `SELECT id, slug, title, subtitle, featured_image_url AS thumbnailUrl,
+                        topic, episode, published_at AS publishedAt
+                 FROM posts
+                 WHERE deleted_at IS NULL
+                 ORDER BY created_at DESC
+                 LIMIT ? OFFSET ?`,
+                [limit, offset]
+            );
+        } catch (err) {
+            // Backward-compatible query for databases that have not run the metadata migration yet.
+            if (!String(err.message || '').includes('Unknown column')) throw err;
+            [items] = await dbPromise.query(
+                `SELECT id, slug, title, NULL AS subtitle, featured_image_url AS thumbnailUrl,
+                        NULL AS topic, NULL AS episode, published_at AS publishedAt
+                 FROM posts
+                 WHERE deleted_at IS NULL
+                 ORDER BY created_at DESC
+                 LIMIT ? OFFSET ?`,
+                [limit, offset]
+            );
+        }
         const [[{ total }]] = await dbPromise.query(
             'SELECT COUNT(*) AS total FROM posts WHERE deleted_at IS NULL'
         );
@@ -179,26 +194,47 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
     const publishedAt = published ? new Date() : null;
 
     try {
-        const [result] = await dbPromise.query(
-            `INSERT INTO posts
-               (title, subtitle, slug, excerpt, content, featured_image_url,
-                status, published_at, topic, episode, hashtags, author_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                title.trim(),
-                subtitle?.trim() || null,
-                slug,
-                summary?.trim() || null,
-                content,
-                thumbnailUrl || null,
-                status,
-                publishedAt,
-                topic?.trim() || null,
-                episode ? parseInt(episode) : null,
-                hashtags?.length ? JSON.stringify(hashtags) : null,
-                req.adminUser.id,
-            ]
-        );
+        let result;
+        try {
+            [result] = await dbPromise.query(
+                `INSERT INTO posts
+                   (title, subtitle, slug, excerpt, content, featured_image_url,
+                    status, published_at, topic, episode, hashtags, author_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    title.trim(),
+                    subtitle?.trim() || null,
+                    slug,
+                    summary?.trim() || null,
+                    content,
+                    thumbnailUrl || null,
+                    status,
+                    publishedAt,
+                    topic?.trim() || null,
+                    episode ? parseInt(episode) : null,
+                    hashtags?.length ? JSON.stringify(hashtags) : null,
+                    req.adminUser.id,
+                ]
+            );
+        } catch (err) {
+            // Backward-compatible insert for older schemas without subtitle/topic/episode/hashtags.
+            if (!String(err.message || '').includes('Unknown column')) throw err;
+            [result] = await dbPromise.query(
+                `INSERT INTO posts
+                   (title, slug, excerpt, content, featured_image_url, status, published_at, author_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    title.trim(),
+                    slug,
+                    summary?.trim() || null,
+                    content,
+                    thumbnailUrl || null,
+                    status,
+                    publishedAt,
+                    req.adminUser.id,
+                ]
+            );
+        }
         res.status(201).json({ slug, id: result.insertId });
     } catch (err) {
         res.status(500).json({ error: err.message });
