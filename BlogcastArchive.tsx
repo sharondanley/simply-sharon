@@ -200,7 +200,7 @@ export default function BlogcastArchive() {
                     </div>
                   </div>
                 </div>
-                {idx < SEED_POSTS.length - 1 && (
+                {idx < posts.length - 1 && (
                   <div style={{ height: 40, paddingLeft: 10, paddingRight: 10, paddingTop: 36, paddingBottom: 36, background: "#fff" }}>
                     <div style={{ width: "100%", height: 0, borderTop: "1px solid #000" }} />
                   </div>

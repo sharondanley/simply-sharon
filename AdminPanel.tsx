@@ -89,8 +89,10 @@ const API = {
   },
 
   /** Return all posts (published + drafts) for the admin list. */
-  async listPosts(page: number, limit: number): Promise<{ items: PostItem[]; total: number }> {
-    const r = await fetch(`/api/admin/posts?page=${page}&limit=${limit}`, {
+  async listPosts(page: number, limit: number, search = ""): Promise<{ items: PostItem[]; total: number }> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (search.trim()) params.set("search", search.trim());
+    const r = await fetch(`/api/admin/posts?${params}`, {
       credentials: "same-origin",
     });
     if (!r.ok) throw new Error("Failed to load posts");
@@ -133,7 +135,7 @@ const API = {
     return result;
   },
 
-  /** Hard-delete a post. */
+  /** Hard-delete a post (soft-delete in DB). */
   async deletePost(id: number): Promise<void> {
     const r = await fetch(`/api/admin/posts/${id}`, {
       method: "DELETE",
@@ -143,6 +145,25 @@ const API = {
       const data = await r.json().catch(() => ({}));
       throw new Error(data.error || "Failed to delete post");
     }
+  },
+
+  /** Remove a post from public view (set to draft) without deleting it. */
+  async unlistPost(id: number): Promise<void> {
+    const r = await fetch(`/api/admin/posts/${id}/unlist`, {
+      method: "PATCH",
+      credentials: "same-origin",
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to unlist post");
+    }
+  },
+
+  /** Return post counts for the dashboard. */
+  async getStats(): Promise<{ total: number; published: number; drafts: number }> {
+    const r = await fetch("/api/admin/stats", { credentials: "same-origin" });
+    if (!r.ok) throw new Error("Failed to load stats");
+    return r.json();
   },
 
   /**
@@ -874,6 +895,69 @@ function PostEditor({
   );
 }
 
+// ─── Delete confirmation dialog ───────────────────────────────────────────────
+
+function DeleteDialog({
+  postTitle,
+  onCancel,
+  onUnlist,
+  onDelete,
+  dark,
+}: {
+  postTitle: string;
+  onCancel: () => void;
+  onUnlist: () => void;
+  onDelete: () => void;
+  dark: boolean;
+}) {
+  const panelBg = dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200";
+  const titleColor = dark ? "text-gray-100" : "text-gray-900";
+  const subColor = dark ? "text-gray-400" : "text-gray-500";
+  const cancelColor = dark
+    ? "text-gray-400 hover:text-white"
+    : "text-gray-500 hover:text-black";
+  const unlistColor = dark
+    ? "border-gray-500 text-gray-200 hover:border-white hover:text-white"
+    : "border-gray-300 text-gray-700 hover:border-black hover:text-black";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className={`rounded-2xl border p-8 shadow-2xl w-full max-w-md mx-4 ${panelBg}`}>
+        <h3 className={`text-xl font-bold font-['Source_Sans_3'] mb-2 ${titleColor}`}>
+          Remove Post
+        </h3>
+        <p className={`text-base font-['Source_Sans_3'] font-semibold mb-1 truncate ${titleColor}`}>
+          "{postTitle}"
+        </p>
+        <p className={`text-sm font-['Source_Sans_3'] mb-6 ${subColor}`}>
+          Unlisting hides the post from the public but keeps it as a draft you can re-publish later.
+          Deleting permanently removes it.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onUnlist}
+            className={`w-full py-3 rounded-lg text-base font-bold font-['Source_Sans_3'] border-2 transition-colors ${unlistColor}`}
+          >
+            Unlist (keep as draft)
+          </button>
+          <button
+            onClick={onDelete}
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-base font-bold font-['Source_Sans_3'] transition-colors"
+          >
+            Delete Permanently
+          </button>
+          <button
+            onClick={onCancel}
+            className={`w-full py-2 text-base font-['Source_Sans_3'] transition-colors ${cancelColor}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Posts list ───────────────────────────────────────────────────────────────
 
 function PostsList({
@@ -888,16 +972,46 @@ function PostsList({
 }) {
   const [data, setData] = useState<{ items: PostItem[]; total: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
-    API.listPosts(1, 50)
-      .then(setData)
-      .catch(() => toast.error("Failed to load posts"))
-      .finally(() => setIsLoading(false));
-  }, [refreshKey]);
+    const tid = window.setTimeout(() => {
+      API.listPosts(1, 50, search)
+        .then(setData)
+        .catch(() => toast.error("Failed to load posts"))
+        .finally(() => setIsLoading(false));
+    }, 200);
+    return () => window.clearTimeout(tid);
+  }, [refreshKey, search]);
 
-  const handleDelete = async (id: number) => {
+  const confirmPost = confirmId !== null
+    ? data?.items.find((p) => p.id === confirmId) ?? null
+    : null;
+
+  const handleUnlist = async () => {
+    if (confirmId === null) return;
+    const id = confirmId;
+    setConfirmId(null);
+    try {
+      await API.unlistPost(id);
+      setData((prev) =>
+        prev
+          ? { ...prev, items: prev.items.map((p) => p.id === id ? { ...p, publishedAt: null } : p) }
+          : prev
+      );
+      toast.success("Post unlisted (saved as draft)");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to unlist: ${msg}`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (confirmId === null) return;
+    const id = confirmId;
+    setConfirmId(null);
     try {
       await API.deletePost(id);
       setData((prev) =>
@@ -910,78 +1024,105 @@ function PostsList({
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className={`h-20 rounded-xl animate-pulse ${dark ? "bg-gray-700" : "bg-gray-100"}`} />
-        ))}
-      </div>
-    );
-  }
-
-  const posts = data?.items || [];
-
-  if (posts.length === 0) {
-    return (
-      <div className={`text-center py-16 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-        <FileText size={48} className="mx-auto mb-4 opacity-30" />
-        <p className="font-['Source_Sans_3'] text-lg">No posts yet. Create your first post!</p>
-      </div>
-    );
-  }
+  const inputClass = `w-full px-4 py-2.5 border rounded-lg text-base font-['Source_Sans_3'] focus:outline-none focus:ring-2 transition-colors ${
+    dark
+      ? "border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-gray-400"
+      : "border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:ring-black"
+  }`;
 
   return (
-    <div className="space-y-3">
-      {posts.map((post) => (
-        <div
-          key={post.id}
-          className={`flex items-center gap-4 p-5 border rounded-xl hover:shadow-sm transition-shadow ${
-            dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          }`}
-        >
-          {post.thumbnailUrl && (
-            <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />
-          )}
-          <div className="flex-1 min-w-0">
-            <h3 className={`font-bold text-base font-['Source_Sans_3'] truncate ${dark ? "text-gray-100" : "text-gray-900"}`}>{post.title}</h3>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              {post.topic && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>{post.topic}</span>}
-              {post.episode && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>Ep. {post.episode}</span>}
-              <span className={`text-sm px-2.5 py-0.5 rounded-full font-['Source_Sans_3'] font-semibold ${
-                post.publishedAt
-                  ? dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800"
-                  : dark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"
-              }`}>
-                {post.publishedAt ? "Published" : "Draft"}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onEdit(post.id)}
-              className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`}
-              title="Edit"
-            >
-              <Pencil size={18} />
-            </button>
-            {/* Replace href with your own post URL pattern */}
-            <a href={`/blogcast/${post.slug}`} target="_blank" rel="noreferrer">
-              <button className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`} title="Preview">
-                <Eye size={18} />
-              </button>
-            </a>
-            <button
-              onClick={() => handleDelete(post.id)}
-              className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
-              title="Delete"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
+    <>
+      {confirmPost && (
+        <DeleteDialog
+          postTitle={confirmPost.title}
+          onCancel={() => setConfirmId(null)}
+          onUnlist={handleUnlist}
+          onDelete={handleDelete}
+          dark={dark}
+        />
+      )}
+
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by title, topic, or tag…"
+          className={inputClass}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className={`h-20 rounded-xl animate-pulse ${dark ? "bg-gray-700" : "bg-gray-100"}`} />
+          ))}
         </div>
-      ))}
-    </div>
+      ) : (data?.items ?? []).length === 0 ? (
+        <div className={`text-center py-16 ${dark ? "text-gray-500" : "text-gray-400"}`}>
+          <FileText size={48} className="mx-auto mb-4 opacity-30" />
+          <p className="font-['Source_Sans_3'] text-lg">
+            {search ? "No posts matched your search." : "No posts yet. Create your first post!"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {(data?.items ?? []).map((post) => (
+            <div
+              key={post.id}
+              className={`flex items-center gap-4 p-5 border rounded-xl hover:shadow-sm transition-shadow ${
+                dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              }`}
+            >
+              {post.thumbnailUrl && (
+                <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => onEdit(post.id)}
+                  className={`font-bold text-base font-['Source_Sans_3'] truncate text-left w-full hover:underline ${dark ? "text-gray-100" : "text-gray-900"}`}
+                >
+                  {post.title}
+                </button>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  {post.topic && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>{post.topic}</span>}
+                  {post.episode && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>Ep. {post.episode}</span>}
+                  <span className={`text-sm px-2.5 py-0.5 rounded-full font-['Source_Sans_3'] font-semibold ${
+                    post.publishedAt
+                      ? dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800"
+                      : dark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {post.publishedAt ? "Published" : "Draft"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onEdit(post.id)}
+                  className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`}
+                  title="Edit"
+                >
+                  <Pencil size={18} />
+                </button>
+                <a href={`/blogcast/${post.slug}`} target="_blank" rel="noreferrer">
+                  <button className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`} title="Preview">
+                    <Eye size={18} />
+                  </button>
+                </a>
+                <button
+                  onClick={() => setConfirmId(post.id)}
+                  className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                  title="Delete"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1074,6 +1215,7 @@ export default function AdminPanel() {
   const [view, setView] = useState<AdminView>("dashboard");
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
+  const [stats, setStats] = useState<{ total: number; published: number; drafts: number } | null>(null);
   const { dark, toggle: toggleDark } = useAdminDarkMode();
 
   useEffect(() => {
@@ -1082,6 +1224,12 @@ export default function AdminPanel() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    API.getStats()
+      .then(setStats)
+      .catch(() => {/* stats are non-critical; UI shows "—" on failure */});
+  }, [postsRefreshKey]);
 
   const logout = async () => {
     try { await API.logout(); } finally { setUser(null); }
@@ -1222,9 +1370,9 @@ export default function AdminPanel() {
             <p className={`text-base font-['Source_Sans_3'] mb-8 ${textMuted}`}>Here's an overview of your content.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
               {[
-                { label: "Total Posts", value: "—", icon: <FileText size={22} /> },
-                { label: "Published", value: "—", icon: <Eye size={22} /> },
-                { label: "Drafts", value: "—", icon: <EyeOff size={22} /> },
+                { label: "Total Posts", value: stats ? String(stats.total) : "—", icon: <FileText size={22} /> },
+                { label: "Published", value: stats ? String(stats.published) : "—", icon: <Eye size={22} /> },
+                { label: "Drafts", value: stats ? String(stats.drafts) : "—", icon: <EyeOff size={22} /> },
               ].map(({ label, value, icon }) => (
                 <div key={label} className={`rounded-xl border p-6 flex items-center gap-4 ${cardBg}`}>
                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${statIconBg}`}>{icon}</div>

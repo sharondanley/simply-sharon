@@ -6,15 +6,22 @@ const mysql = require('mysql2');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const sharp = require('sharp');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 
 const app = express();
+const publicDir = path.join(__dirname, 'public');
+const uploadsDir = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : path.join(publicDir, 'uploads');
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(publicDir));
+app.use('/uploads', express.static(uploadsDir));
 const port = Number(process.env.PORT || 8081);
 
 const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "JWT_SECRET"];
@@ -243,6 +250,45 @@ async function fetchPublicArchivePosts({ page, limit, search, year }) {
     };
 }
 
+async function ensureCommentsTable() {
+    await dbPromise.query(
+        `CREATE TABLE IF NOT EXISTS comments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            post_id INT NOT NULL,
+            parent_id INT NULL,
+            author_name VARCHAR(100) NOT NULL,
+            author_email VARCHAR(255) NULL,
+            avatar_url VARCHAR(500) NULL,
+            content LONGTEXT NOT NULL,
+            likes INT NOT NULL DEFAULT 0,
+            dislikes INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP NULL,
+            INDEX idx_comments_post_id (post_id),
+            INDEX idx_comments_parent_id (parent_id),
+            CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+        ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+    );
+
+    // Backfill compatibility for older comments tables that used different columns.
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id INT NULL');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_name VARCHAR(100) NULL');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_email VARCHAR(255) NULL');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes INT NOT NULL DEFAULT 0');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS dislikes INT NOT NULL DEFAULT 0');
+
+    try {
+        await dbPromise.query(
+            `UPDATE comments
+             SET author_name = COALESCE(NULLIF(author_name, ''), author)
+             WHERE author_name IS NULL OR author_name = ''`
+        );
+    } catch {
+        // Ignore if legacy `author` column is not present.
+    }
+}
+
 // ─── Public routes ─────────────────────────────────────────────────────────────
 
 const getPosts = (req, res) => {
@@ -280,6 +326,90 @@ app.get('/api/blogcast/posts/id/:id', async (req, res) => {
         const post = await fetchPublicPostByField('id', id);
         if (!post) return res.status(404).json({ error: 'Post not found' });
         res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/blogcast/comments', async (req, res) => {
+    const postId = parseInt(req.query.postId, 10);
+    if (!postId || postId < 1) return res.status(400).json({ error: 'Invalid post ID' });
+
+    try {
+        const [rows] = await dbPromise.query(
+            `SELECT id, post_id AS postId, parent_id AS parentId, author_name AS authorName,
+                    author_email AS authorEmail, avatar_url AS avatarUrl, content,
+                    likes, dislikes, created_at AS createdAt
+             FROM comments
+             WHERE post_id = ? AND deleted_at IS NULL
+             ORDER BY created_at ASC`,
+            [postId]
+        );
+        res.json({ items: rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/blogcast/comments', async (req, res) => {
+    const postId = parseInt(req.body.postId, 10);
+    const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
+    const authorName = String(req.body.authorName || '').trim();
+    const authorEmail = String(req.body.authorEmail || '').trim() || null;
+    const content = String(req.body.content || '').trim();
+
+    if (!postId || postId < 1) return res.status(400).json({ error: 'Invalid post ID' });
+    if (!authorName) return res.status(400).json({ error: 'Author name is required' });
+    if (!content) return res.status(400).json({ error: 'Comment content is required' });
+
+    const safeContent = content
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(authorName)}`;
+
+    try {
+        const [postRows] = await dbPromise.query(
+            'SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL AND published_at IS NOT NULL LIMIT 1',
+            [postId]
+        );
+        if (!postRows[0]) return res.status(404).json({ error: 'Post not found' });
+
+        const [result] = await dbPromise.query(
+            `INSERT INTO comments (post_id, parent_id, author_name, author_email, avatar_url, content)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [postId, parentId, authorName, authorEmail, avatarUrl, safeContent]
+        );
+
+        const [rows] = await dbPromise.query(
+            `SELECT id, post_id AS postId, parent_id AS parentId, author_name AS authorName,
+                    author_email AS authorEmail, avatar_url AS avatarUrl, content,
+                    likes, dislikes, created_at AS createdAt
+             FROM comments
+             WHERE id = ? LIMIT 1`,
+            [result.insertId]
+        );
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/blogcast/comments/:id/reaction', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const reaction = req.body?.reaction;
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid comment ID' });
+    if (!['like', 'dislike'].includes(reaction)) {
+        return res.status(400).json({ error: 'Invalid reaction' });
+    }
+
+    try {
+        await dbPromise.query(
+            reaction === 'like'
+                ? 'UPDATE comments SET likes = likes + 1 WHERE id = ? AND deleted_at IS NULL'
+                : 'UPDATE comments SET dislikes = dislikes + 1 WHERE id = ? AND deleted_at IS NULL',
+            [id]
+        );
+        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -365,35 +495,48 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = (page - 1) * limit;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
     try {
-        let items;
+        let items, total;
         try {
+            const where = ['deleted_at IS NULL'];
+            const params = [];
+            if (search) {
+                where.push('(title LIKE ? OR subtitle LIKE ? OR topic LIKE ? OR hashtags LIKE ?)');
+                const p = `%${search}%`;
+                params.push(p, p, p, p);
+            }
+            const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, subtitle, featured_image_url AS thumbnailUrl,
                         topic, episode, published_at AS publishedAt
-                 FROM posts
-                 WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC
-                 LIMIT ? OFFSET ?`,
-                [limit, offset]
+                 FROM posts WHERE ${wc} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+                [...params, limit, offset]
             );
-        } catch (err) {
+            [[{ total }]] = await dbPromise.query(
+                `SELECT COUNT(*) AS total FROM posts WHERE ${wc}`, params
+            );
+        } catch (innerErr) {
             // Backward-compatible query for databases that have not run the metadata migration yet.
-            if (!String(err.message || '').includes('Unknown column')) throw err;
+            if (!String(innerErr.message || '').includes('Unknown column')) throw innerErr;
+            const where = ['deleted_at IS NULL'];
+            const params = [];
+            if (search) {
+                where.push('title LIKE ?');
+                params.push(`%${search}%`);
+            }
+            const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, NULL AS subtitle, featured_image_url AS thumbnailUrl,
                         NULL AS topic, NULL AS episode, published_at AS publishedAt
-                 FROM posts
-                 WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC
-                 LIMIT ? OFFSET ?`,
-                [limit, offset]
+                 FROM posts WHERE ${wc} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+                [...params, limit, offset]
+            );
+            [[{ total }]] = await dbPromise.query(
+                `SELECT COUNT(*) AS total FROM posts WHERE ${wc}`, params
             );
         }
-        const [[{ total }]] = await dbPromise.query(
-            'SELECT COUNT(*) AS total FROM posts WHERE deleted_at IS NULL'
-        );
         res.json({ items, total });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -551,11 +694,46 @@ app.delete('/api/admin/posts/:id', authMiddleware, async (req, res) => {
     if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
 
     try {
-        await dbPromise.query(
+        const [result] = await dbPromise.query(
             'UPDATE posts SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
             [id]
         );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Post not found or already deleted' });
+        }
         res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/admin/posts/:id/unlist', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
+
+    try {
+        const [result] = await dbPromise.query(
+            "UPDATE posts SET published_at = NULL, status = 'draft' WHERE id = ? AND deleted_at IS NULL",
+            [id]
+        );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/stats', authMiddleware, async (req, res) => {
+    try {
+        const [[{ total }]] = await dbPromise.query(
+            'SELECT COUNT(*) AS total FROM posts WHERE deleted_at IS NULL'
+        );
+        const [[{ published }]] = await dbPromise.query(
+            "SELECT COUNT(*) AS published FROM posts WHERE deleted_at IS NULL AND (status = 'published' OR published_at IS NOT NULL)"
+        );
+        res.json({ total: Number(total), published: Number(published), drafts: Number(total) - Number(published) });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -563,7 +741,7 @@ app.delete('/api/admin/posts/:id', authMiddleware, async (req, res) => {
 
 // ─── Thumbnail upload ──────────────────────────────────────────────────────────
 
-app.post('/api/admin/upload/thumbnail', authMiddleware, (req, res) => {
+app.post('/api/admin/upload/thumbnail', authMiddleware, async (req, res) => {
     const { dataBase64, contentType, filename } = req.body;
 
     if (!dataBase64 || !contentType) {
@@ -575,14 +753,26 @@ app.post('/api/admin/upload/thumbnail', authMiddleware, (req, res) => {
         return res.status(400).json({ error: 'Only JPEG, PNG, GIF, and WebP images are allowed' });
     }
 
-    const buffer = Buffer.from(dataBase64, 'base64');
-    if (buffer.length > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: 'Image exceeds 5 MB limit' });
+    const originalBuffer = Buffer.from(dataBase64, 'base64');
+    if (originalBuffer.length > 8 * 1024 * 1024) {
+        return res.status(400).json({ error: 'Image exceeds 8 MB limit' });
     }
 
-    const ext = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
+    let buffer = originalBuffer;
+    let ext = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
+    try {
+        // Normalize uploads to compressed WebP to minimize storage.
+        buffer = await sharp(originalBuffer)
+            .rotate()
+            .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 78, effort: 4 })
+            .toBuffer();
+        ext = 'webp';
+    } catch {
+        // If sharp cannot process the input, keep original bytes.
+    }
+
     const safeName = crypto.randomBytes(16).toString('hex') + '.' + ext;
-    const uploadsDir = path.join(__dirname, 'public', 'uploads');
 
     if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
@@ -614,11 +804,25 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const server = app.listen(port, () => {
-    console.log(`Listening on port ${port}...`);
-});
+async function startServer() {
+    try {
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        await ensureCommentsTable();
+    } catch (error) {
+        console.error('Failed to ensure comments table:', error.message);
+        process.exit(1);
+    }
 
-server.on("error", (error) => {
-    console.error("Server failed to start:", error.message);
-    process.exit(1);
-});
+    const server = app.listen(port, () => {
+        console.log(`Listening on port ${port}...`);
+    });
+
+    server.on('error', (error) => {
+        console.error('Server failed to start:', error.message);
+        process.exit(1);
+    });
+}
+
+startServer();

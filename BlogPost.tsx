@@ -190,7 +190,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
           {bodyBlocks.map(renderBlock)}
 
           <div style={{ width: "1574px", padding: "10px 0" }}>
-            <CommentSection />
+            <CommentSection postId={post.id} />
           </div>
             </>
           )}
