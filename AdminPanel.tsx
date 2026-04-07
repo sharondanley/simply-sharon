@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, GripVertical, Image, Type, Quote, Video,
   Bold, Italic, Underline, Hash, Eye, EyeOff, Save, ArrowLeft, Upload,
-  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal,
+  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil,
 } from "lucide-react";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -47,6 +47,14 @@ type CreatePostInput = {
   blocks: Block[];
   thumbnailUrl?: string;
   published: boolean;
+};
+
+type PostDetail = PostItem & {
+  summary?: string | null;
+  hashtags: string[];
+  blocks: Block[];
+  published: boolean;
+  authorName?: string | null;
 };
 
 // ─── API stubs — replace each body with your actual backend call ──────────────
@@ -99,6 +107,29 @@ const API = {
     });
     const result = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(result.error || "Failed to save post");
+    return result;
+  },
+
+  /** Load a single post into the editor. */
+  async getPost(id: number): Promise<PostDetail> {
+    const r = await fetch(`/api/admin/posts/${id}`, {
+      credentials: "same-origin",
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Failed to load post");
+    return data;
+  },
+
+  /** Update an existing post. */
+  async updatePost(id: number, data: CreatePostInput): Promise<{ slug: string }> {
+    const r = await fetch(`/api/admin/posts/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(data),
+    });
+    const result = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(result.error || "Failed to update post");
     return result;
   },
 
@@ -532,6 +563,7 @@ function PostPreview({
 // ─── Post editor ──────────────────────────────────────────────────────────────
 
 function PostEditor({
+  postId,
   onBack,
   dark,
   onSaved,
@@ -554,7 +586,45 @@ function PostEditor({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [loadingPost, setLoadingPost] = useState(Boolean(postId));
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!postId) {
+      setLoadingPost(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingPost(true);
+
+    API.getPost(postId)
+      .then((post) => {
+        if (cancelled) return;
+        setTitle(post.title || "");
+        setSubtitle(post.subtitle || "");
+        setSummary(post.summary || "");
+        setTopic(post.topic || "");
+        setEpisode(post.episode ? String(post.episode) : "");
+        setHashtags((post.hashtags || []).join(", "));
+        setThumbnailUrl(post.thumbnailUrl || "");
+        setThumbnailPreview(post.thumbnailUrl || "");
+        setBlocks(post.blocks?.length ? post.blocks : [{ id: generateId(), type: "paragraph", content: "" }]);
+        setPublished(Boolean(post.published));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        toast.error(`Failed to load post: ${msg}`);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPost(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [postId]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -598,7 +668,7 @@ function PostEditor({
     const hashtagArray = hashtags.split(",").map((h) => h.trim()).filter(Boolean);
     setSaving(true);
     try {
-      await API.createPost({
+      const payload = {
         title: title.trim(),
         subtitle: subtitle.trim() || undefined,
         summary: summary.trim() || undefined,
@@ -608,8 +678,13 @@ function PostEditor({
         thumbnailUrl: thumbnailUrl || undefined,
         blocks,
         published,
-      });
-      toast.success("Post saved successfully!");
+      };
+      if (postId) {
+        await API.updatePost(postId, payload);
+      } else {
+        await API.createPost(payload);
+      }
+      toast.success(postId ? "Post updated successfully!" : "Post saved successfully!");
       onSaved?.();
       onBack();
     } catch (err: unknown) {
@@ -628,6 +703,14 @@ function PostEditor({
   const labelClass = `text-sm font-semibold font-['Source_Sans_3'] block mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`;
   const cardClass = `border rounded-xl p-5 flex flex-col gap-4 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`;
   const cardTitleClass = `text-base font-bold font-['Source_Sans_3'] flex items-center gap-2 ${dark ? "text-gray-100" : "text-gray-900"}`;
+
+  if (loadingPost) {
+    return (
+      <div className={`rounded-xl border p-10 flex items-center justify-center min-h-[320px] ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
+        <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${dark ? "border-gray-300" : "border-black"}`} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -668,7 +751,7 @@ function PostEditor({
             }`}
           >
             <Save size={18} />
-            {saving ? "Saving…" : "Save Post"}
+            {saving ? (postId ? "Updating…" : "Saving…") : (postId ? "Update Post" : "Save Post")}
           </button>
         </div>
       </div>
@@ -875,6 +958,13 @@ function PostsList({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => onEdit(post.id)}
+              className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`}
+              title="Edit"
+            >
+              <Pencil size={18} />
+            </button>
             {/* Replace href with your own post URL pattern */}
             <a href={`/blogcast/${post.slug}`} target="_blank" rel="noreferrer">
               <button className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`} title="Preview">
@@ -976,12 +1066,13 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
 
 // ─── Main admin page ──────────────────────────────────────────────────────────
 
-type AdminView = "dashboard" | "posts" | "new-post";
+type AdminView = "dashboard" | "posts" | "new-post" | "edit-post";
 
 export default function AdminPanel() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<AdminView>("dashboard");
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
   const { dark, toggle: toggleDark } = useAdminDarkMode();
 
@@ -994,6 +1085,16 @@ export default function AdminPanel() {
 
   const logout = async () => {
     try { await API.logout(); } finally { setUser(null); }
+  };
+
+  const startNewPost = () => {
+    setEditingPostId(null);
+    setView("new-post");
+  };
+
+  const startEditingPost = (id: number) => {
+    setEditingPostId(id);
+    setView("edit-post");
   };
 
   const isAuthenticated = user !== null;
@@ -1141,7 +1242,7 @@ export default function AdminPanel() {
                   View all →
                 </button>
               </div>
-              <PostsList onEdit={() => {}} onNew={() => setView("new-post")} dark={dark} refreshKey={postsRefreshKey} />
+              <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
             </div>
           </div>
         )}
@@ -1151,7 +1252,7 @@ export default function AdminPanel() {
             <div className="flex items-center justify-between mb-6">
               <h2 className={`text-3xl font-bold font-['Source_Sans_3'] ${textPrimary}`}>All Posts</h2>
               <button
-                onClick={() => setView("new-post")}
+                onClick={startNewPost}
                 className={`flex items-center gap-2 px-5 py-3 text-base font-bold font-['Source_Sans_3'] rounded-lg transition-colors ${
                   dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
                 }`}
@@ -1159,7 +1260,7 @@ export default function AdminPanel() {
                 <Plus size={18} /> New Post
               </button>
             </div>
-            <PostsList onEdit={() => {}} onNew={() => setView("new-post")} dark={dark} refreshKey={postsRefreshKey} />
+            <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
           </div>
         )}
 
@@ -1167,6 +1268,18 @@ export default function AdminPanel() {
           <div>
             <h2 className={`text-3xl font-bold font-['Source_Sans_3'] mb-6 ${textPrimary}`}>New Post</h2>
             <PostEditor
+              onBack={() => setView("posts")}
+              dark={dark}
+              onSaved={() => setPostsRefreshKey((k) => k + 1)}
+            />
+          </div>
+        )}
+
+        {view === "edit-post" && editingPostId !== null && (
+          <div>
+            <h2 className={`text-3xl font-bold font-['Source_Sans_3'] mb-6 ${textPrimary}`}>Edit Post</h2>
+            <PostEditor
+              postId={editingPostId}
               onBack={() => setView("posts")}
               dark={dark}
               onSaved={() => setPostsRefreshKey((k) => k + 1)}

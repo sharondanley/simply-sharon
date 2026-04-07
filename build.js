@@ -11,7 +11,7 @@ const publicDirPath = path.join(projectRoot, 'public');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 (async () => {
-    // 1. Compile React admin frontend → public/admin.bundle.js
+    // 1. Compile React admin and blog frontends
     console.log('Compiling frontend...');
     await esbuild.build({
         entryPoints: [path.join(projectRoot, 'src', 'admin.tsx')],
@@ -20,6 +20,15 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
         platform: 'browser',
         target: ['es2020'],
         outfile: path.join(publicDirPath, 'admin.bundle.js'),
+        jsx: 'automatic',
+    });
+    await esbuild.build({
+        entryPoints: [path.join(projectRoot, 'src', 'blog.tsx')],
+        bundle: true,
+        minify: true,
+        platform: 'browser',
+        target: ['es2020'],
+        outfile: path.join(publicDirPath, 'blog.bundle.js'),
         jsx: 'automatic',
     });
     console.log('Frontend compiled.');

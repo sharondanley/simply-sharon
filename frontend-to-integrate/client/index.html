@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Simply Sharon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Inter:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- Analytics loaded at runtime if env vars are available -->
+    <script id="analytics-loader">
+      (function() {
+        // These values are replaced at build time on the Manus platform.
+        // On other hosts they remain as empty strings and the script is skipped.
+        var endpoint = typeof __ANALYTICS_ENDPOINT__ !== 'undefined' ? __ANALYTICS_ENDPOINT__ : '';
+        var siteId = typeof __ANALYTICS_WEBSITE_ID__ !== 'undefined' ? __ANALYTICS_WEBSITE_ID__ : '';
+        if (endpoint && siteId) {
+          var s = document.createElement('script');
+          s.defer = true;
+          s.src = endpoint + '/umami';
+          s.setAttribute('data-website-id', siteId);
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
+  </body>
+
+</html>

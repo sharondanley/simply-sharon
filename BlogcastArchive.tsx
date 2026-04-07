@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link } from "wouter";
-import { SiteNavbar } from "@/components/SiteNavbar";
-import { SiteFooter } from "@/components/SiteFooter";
+import { useEffect, useMemo, useState } from "react";
+import { SiteNavbar } from "./src/components/SiteNavbar";
+import { SiteFooter } from "./src/components/SiteFooter";
+import { ScaledPage } from "./src/components/ScaledPage";
+import { ArchivePost, fetchBlogcastPosts, formatArchiveDate, stripHtml } from "./src/blogData";
 
 // ── CDN asset map ──────────────────────────────────────────────────────────
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz";
@@ -22,31 +23,65 @@ const A = {
 
 // Local SiteFooter replaced by shared component
 
-const SEED_POSTS = [
-  { id: 1, title: "The Art of Color Picking", date: "March 25th 2026", description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis efficitur nulla id tortor suscipit consequat. Pellentesque varius venenatis ornare. Phasellus.", thumbnail: A.thumb1, slug: "the-art-of-color-picking" },
-  { id: 2, title: "The Art of Color Picking", date: "March 25th 2026", description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis efficitur nulla id tortor suscipit consequat. Pellentesque varius venenatis ornare. Phasellus.", thumbnail: A.thumb2, slug: "the-art-of-color-picking-2" },
-  { id: 3, title: "The Art of Color Picking", date: "March 25th 2026", description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis efficitur nulla id tortor suscipit consequat. Pellentesque varius venenatis ornare. Phasellus.", thumbnail: A.thumb3, slug: "the-art-of-color-picking-3" },
-  { id: 4, title: "The Art of Color Picking", date: "March 25th 2026", description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis efficitur nulla id tortor suscipit consequat. Pellentesque varius venenatis ornare. Phasellus.", thumbnail: A.thumb4, slug: "the-art-of-color-picking-4" },
-];
-
-const TOTAL_PAGES = 10;
-
 export default function BlogcastArchive() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [timePeriod, setTimePeriod] = useState("");
+  const [posts, setPosts] = useState<ArchivePost[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, timePeriod]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setLoading(true);
+      setError("");
+      fetchBlogcastPosts({ page, limit: 4, search, year: timePeriod })
+        .then((data) => {
+          if (cancelled) return;
+          setPosts(data.items);
+          setTotalPages(data.totalPages || 1);
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setPosts([]);
+          setTotalPages(1);
+          setError(err instanceof Error ? err.message : "Failed to load posts");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [page, search, timePeriod]);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 3) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+    return [1, 2, 3];
+  }, [totalPages]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff", overflowX: "hidden" }}>
       <SiteNavbar />
-      <div style={{ width: "100%", overflow: "hidden" }}>
-        <div style={{ width: 1920, transformOrigin: "top left", transform: `scale(min(1, calc(100vw / 1920)))` }}>
+      <ScaledPage watchKey={`${posts.length}-${loading}-${page}-${totalPages}`}>
+        <div style={{ width: 1920 }}>
 
           {/* Breadcrumb */}
           <div style={{ display: "flex", alignItems: "center", padding: "10px 0 0 10px" }}>
-            <div style={{ padding: 10 }}>
+            <a href="/" style={{ padding: 10, display: "inline-flex" }}>
               <img src={A.homeIcon} alt="home" style={{ width: 29, height: 29 }} />
-            </div>
+            </a>
             <div style={{ padding: 10 }}>
               <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 24, fontWeight: 700, color: "#000" }}>home / Blogcast Home</span>
             </div>
@@ -115,20 +150,38 @@ export default function BlogcastArchive() {
 
           {/* Post container */}
           <div style={{ width: 1698, margin: "97px auto 0 auto", display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 72 }}>
-            {SEED_POSTS.map((post, idx) => (
+            {loading && (
+              <div style={{ width: "100%", padding: "80px 0", textAlign: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, color: "#4b5563" }}>
+                Loading posts...
+              </div>
+            )}
+
+            {!loading && error && (
+              <div style={{ width: "100%", padding: "80px 0", textAlign: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, color: "#991b1b" }}>
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && posts.length === 0 && (
+              <div style={{ width: "100%", padding: "80px 0", textAlign: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, color: "#4b5563" }}>
+                No published posts matched your search.
+              </div>
+            )}
+
+            {!loading && !error && posts.map((post, idx) => (
               <div key={post.id} style={{ width: "100%" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 113 }}>
-                  <img src={post.thumbnail} alt={post.title} style={{ width: 386, height: 386, borderRadius: 13, objectFit: "cover" as const, flexShrink: 0 }} />
+                  <img src={post.thumbnailUrl || A[`thumb${(idx % 4) + 1}` as keyof typeof A]} alt={post.title} style={{ width: 386, height: 386, borderRadius: 13, objectFit: "cover" as const, flexShrink: 0 }} />
                   <div style={{ width: 1141, display: "flex", flexDirection: "column" as const, justifyContent: "center", alignItems: "flex-start", gap: 43 }}>
                     <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-start" }}>
                       <div style={{ padding: 10 }}>
                         <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 48, fontWeight: 700, color: "#000" }}>{post.title}</span>
                       </div>
                       <div style={{ padding: 10 }}>
-                        <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 36, fontWeight: 400, color: "#ababab" }}>Posted on {post.date}</span>
+                        <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 36, fontWeight: 400, color: "#ababab" }}>Posted on {formatArchiveDate(post.publishedAt || post.createdAt)}</span>
                       </div>
                       <div style={{ padding: 10, width: "100%", boxSizing: "border-box" as const }}>
-                        <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 400, color: "#000", lineHeight: "46px" }}>{post.description}</span>
+                        <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 400, color: "#000", lineHeight: "46px" }}>{stripHtml(post.summary) || post.subtitle || "Read the latest thoughts from the Blogcast archive."}</span>
                       </div>
                     </div>
                     <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108 }}>
@@ -137,12 +190,12 @@ export default function BlogcastArchive() {
                         { icon: A.listenBtn, label: "Listen", w: 43, h: 42, r: 0, href: `https://www.youtube.com/@SimplySharonTips/featured` },
                         { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: `https://www.youtube.com/@SimplySharonTips/featured` },
                       ].map(({ icon, label, w, h, r, href }) => (
-                        <Link key={label} href={href}>
+                        <a key={label} href={href} target={label === "Read" ? undefined : "_blank"} rel={label === "Read" ? undefined : "noreferrer"} style={{ textDecoration: "none" }}>
                           <div style={{ paddingLeft: 39, paddingRight: 39, paddingTop: 14, paddingBottom: 14, background: "#D4D4D4", borderRadius: 20, display: "flex", alignItems: "center", gap: 23, cursor: "pointer", textDecoration: "none" }}>
                             <img src={icon} alt={label} style={{ width: w, height: h, borderRadius: r }} />
                             <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>{label}</span>
                           </div>
-                        </Link>
+                        </a>
                       ))}
                     </div>
                   </div>
@@ -162,26 +215,29 @@ export default function BlogcastArchive() {
               <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, fontWeight: 700, color: "#000" }}>Previous Page</span>
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 35 }}>
-              {[1, 2, 3].map((n) => (
+              {pageNumbers.map((n) => (
                 <button key={n} onClick={() => setPage(n)} style={{ width: 87, paddingLeft: 21, paddingRight: 21, paddingTop: 20, paddingBottom: 20, background: page === n ? "#636363" : "#dadada", borderRadius: 45, border: "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === n ? "#fff" : "#000" }}>{n}</span>
                 </button>
               ))}
-              <div style={{ padding: 10 }}>
-                <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>. . .</span>
-              </div>
-              <button onClick={() => setPage(TOTAL_PAGES)} style={{ paddingLeft: 21, paddingRight: 21, paddingTop: 20, paddingBottom: 20, background: page === TOTAL_PAGES ? "#636363" : "#dadada", borderRadius: 51, border: "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === TOTAL_PAGES ? "#fff" : "#000" }}>10</span>
-              </button>
+              {totalPages > 3 && (
+                <>
+                  <div style={{ padding: 10 }}>
+                    <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>. . .</span>
+                  </div>
+                  <button onClick={() => setPage(totalPages)} style={{ paddingLeft: 21, paddingRight: 21, paddingTop: 20, paddingBottom: 20, background: page === totalPages ? "#636363" : "#dadada", borderRadius: 51, border: "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === totalPages ? "#fff" : "#000" }}>{totalPages}</span>
+                  </button>
+                </>
+              )}
             </div>
-            <button onClick={() => setPage(p => Math.min(TOTAL_PAGES, p + 1))} disabled={page === TOTAL_PAGES} style={{ width: 276, height: 86, paddingRight: 50, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === TOTAL_PAGES ? "not-allowed" : "pointer", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 74, opacity: page === TOTAL_PAGES ? 0.5 : 1 }}>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ width: 276, height: 86, paddingRight: 50, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === totalPages ? "not-allowed" : "pointer", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 74, opacity: page === totalPages ? 0.5 : 1 }}>
               <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, fontWeight: 700, color: "#000" }}>Next Page</span>
             </button>
           </div>
 
         </div>
-        <div style={{ height: `calc(5500px * min(1, calc(100vw / 1920)))` }} />
-      </div>
+      </ScaledPage>
       <SiteFooter />
     </div>
   );

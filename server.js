@@ -60,6 +60,189 @@ function authMiddleware(req, res, next) {
     }
 }
 
+function parseJsonArray(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function parseContentBlocks(value) {
+    if (!value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+    } catch {
+        // Fall through and expose the content as a single paragraph block.
+    }
+
+    return [{
+        id: crypto.randomBytes(6).toString('hex'),
+        type: 'paragraph',
+        content: String(value),
+    }];
+}
+
+function hydratePostRecord(row) {
+    if (!row) return null;
+
+    return {
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        subtitle: row.subtitle || null,
+        summary: row.summary || null,
+        thumbnailUrl: row.thumbnailUrl || null,
+        topic: row.topic || null,
+        episode: row.episode || null,
+        publishedAt: row.publishedAt || null,
+        createdAt: row.createdAt || null,
+        updatedAt: row.updatedAt || null,
+        authorName: row.authorName || row.author || 'Simply Sharon',
+        hashtags: parseJsonArray(row.hashtags),
+        blocks: parseContentBlocks(row.content),
+        published: row.status ? row.status === 'published' : Boolean(row.publishedAt),
+    };
+}
+
+async function fetchAdminPostById(id) {
+    let rows;
+
+    try {
+        [rows] = await dbPromise.query(
+            `SELECT p.id, p.slug, p.title, p.subtitle, p.excerpt AS summary, p.content,
+                    p.featured_image_url AS thumbnailUrl, p.topic, p.episode, p.hashtags,
+                    p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+             FROM posts p
+             LEFT JOIN users u ON u.id = p.author_id
+             WHERE p.id = ? AND p.deleted_at IS NULL
+             LIMIT 1`,
+            [id]
+        );
+    } catch (err) {
+        if (!String(err.message || '').includes('Unknown column')) throw err;
+        [rows] = await dbPromise.query(
+            `SELECT p.id, p.slug, p.title, NULL AS subtitle, p.excerpt AS summary, p.content,
+                    p.featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode, NULL AS hashtags,
+                    p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+             FROM posts p
+             LEFT JOIN users u ON u.id = p.author_id
+             WHERE p.id = ? AND p.deleted_at IS NULL
+             LIMIT 1`,
+            [id]
+        );
+    }
+
+    return hydratePostRecord(rows[0]);
+}
+
+async function fetchPublicPostByField(field, value) {
+    if (!['id', 'slug'].includes(field)) {
+        throw new Error('Unsupported field lookup');
+    }
+
+    let rows;
+
+    try {
+        [rows] = await dbPromise.query(
+            `SELECT p.id, p.slug, p.title, p.subtitle, p.excerpt AS summary, p.content,
+                    p.featured_image_url AS thumbnailUrl, p.topic, p.episode, p.hashtags,
+                    p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+             FROM posts p
+             LEFT JOIN users u ON u.id = p.author_id
+             WHERE p.${field} = ? AND p.deleted_at IS NULL
+             LIMIT 1`,
+            [value]
+        );
+    } catch (err) {
+        if (!String(err.message || '').includes('Unknown column')) throw err;
+        [rows] = await dbPromise.query(
+            `SELECT p.id, p.slug, p.title, NULL AS subtitle, p.excerpt AS summary, p.content,
+                    p.featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode, NULL AS hashtags,
+                    p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+             FROM posts p
+             LEFT JOIN users u ON u.id = p.author_id
+             WHERE p.${field} = ? AND p.deleted_at IS NULL
+             LIMIT 1`,
+            [value]
+        );
+    }
+
+    return hydratePostRecord(rows[0]);
+}
+
+async function fetchPublicArchivePosts({ page, limit, search, year }) {
+    const where = ['deleted_at IS NULL', 'published_at IS NOT NULL'];
+    const params = [];
+    const countParams = [];
+    const trimmedSearch = search?.trim();
+    const numericYear = Number(year);
+    const offset = (page - 1) * limit;
+
+    if (trimmedSearch) {
+        where.push('(title LIKE ? OR excerpt LIKE ? OR content LIKE ?)');
+        const pattern = `%${trimmedSearch}%`;
+        params.push(pattern, pattern, pattern);
+        countParams.push(pattern, pattern, pattern);
+    }
+
+    if (Number.isInteger(numericYear) && numericYear > 0) {
+        where.push('YEAR(COALESCE(published_at, created_at)) = ?');
+        params.push(numericYear);
+        countParams.push(numericYear);
+    }
+
+    const whereClause = where.join(' AND ');
+    let items;
+
+    try {
+        [items] = await dbPromise.query(
+            `SELECT id, slug, title, subtitle, excerpt AS summary,
+                    featured_image_url AS thumbnailUrl, topic, episode,
+                    published_at AS publishedAt, created_at AS createdAt,
+                    updated_at AS updatedAt
+             FROM posts
+             WHERE ${whereClause}
+             ORDER BY COALESCE(published_at, created_at) DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+    } catch (err) {
+        if (!String(err.message || '').includes('Unknown column')) throw err;
+        [items] = await dbPromise.query(
+            `SELECT id, slug, title, NULL AS subtitle, excerpt AS summary,
+                    featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode,
+                    published_at AS publishedAt, created_at AS createdAt,
+                    updated_at AS updatedAt
+             FROM posts
+             WHERE ${whereClause}
+             ORDER BY COALESCE(published_at, created_at) DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+    }
+
+    const [[{ total }]] = await dbPromise.query(
+        `SELECT COUNT(*) AS total FROM posts WHERE ${whereClause}`,
+        countParams
+    );
+
+    return {
+        items,
+        total,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+}
+
 // ─── Public routes ─────────────────────────────────────────────────────────────
 
 const getPosts = (req, res) => {
@@ -74,6 +257,43 @@ const getPosts = (req, res) => {
 app.get("/api/posts", getPosts);
 app.get("/posts", getPosts);
 app.get("/blog_articles", getPosts);
+
+app.get('/api/blogcast/posts', async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 6), 50);
+    const search = typeof req.query.search === 'string' ? req.query.search : '';
+    const year = typeof req.query.year === 'string' ? req.query.year : '';
+
+    try {
+        const data = await fetchPublicArchivePosts({ page, limit, search, year });
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/blogcast/posts/id/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
+
+    try {
+        const post = await fetchPublicPostByField('id', id);
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/blogcast/posts/:slug', async (req, res) => {
+    try {
+        const post = await fetchPublicPostByField('slug', req.params.slug);
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 app.get("/health", (req, res) => {
     res.json({ ok: true });
@@ -180,6 +400,19 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     }
 });
 
+app.get('/api/admin/posts/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
+
+    try {
+        const post = await fetchAdminPostById(id);
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/admin/posts', authMiddleware, async (req, res) => {
     const { title, subtitle, summary, topic, episode, hashtags, blocks, thumbnailUrl, published } = req.body;
 
@@ -241,6 +474,78 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
     }
 });
 
+app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { title, subtitle, summary, topic, episode, hashtags, blocks, thumbnailUrl, published } = req.body;
+
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
+    if (!title || !title.trim()) {
+        return res.status(400).json({ error: 'Title is required' });
+    }
+
+    try {
+        const [existingRows] = await dbPromise.query(
+            'SELECT slug, published_at AS publishedAt FROM posts WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+            [id]
+        );
+        const existing = existingRows[0];
+
+        if (!existing) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        const content = JSON.stringify(blocks || []);
+        const status = published ? 'published' : 'draft';
+        const normalizedEpisode = Number.isInteger(Number(episode)) && Number(episode) > 0
+            ? parseInt(episode, 10)
+            : null;
+        const publishedAt = published ? (existing.publishedAt || new Date()) : null;
+
+        try {
+            await dbPromise.query(
+                `UPDATE posts
+                 SET title = ?, subtitle = ?, excerpt = ?, content = ?, featured_image_url = ?,
+                     status = ?, published_at = ?, topic = ?, episode = ?, hashtags = ?
+                 WHERE id = ? AND deleted_at IS NULL`,
+                [
+                    title.trim(),
+                    subtitle?.trim() || null,
+                    summary?.trim() || null,
+                    content,
+                    thumbnailUrl || null,
+                    status,
+                    publishedAt,
+                    topic?.trim() || null,
+                    normalizedEpisode,
+                    hashtags?.length ? JSON.stringify(hashtags) : null,
+                    id,
+                ]
+            );
+        } catch (err) {
+            if (!String(err.message || '').includes('Unknown column')) throw err;
+            await dbPromise.query(
+                `UPDATE posts
+                 SET title = ?, excerpt = ?, content = ?, featured_image_url = ?,
+                     status = ?, published_at = ?
+                 WHERE id = ? AND deleted_at IS NULL`,
+                [
+                    title.trim(),
+                    summary?.trim() || null,
+                    content,
+                    thumbnailUrl || null,
+                    status,
+                    publishedAt,
+                    id,
+                ]
+            );
+        }
+
+        res.json({ ok: true, slug: existing.slug });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/admin/posts/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id);
     if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
@@ -291,6 +596,18 @@ app.post('/api/admin/upload/thumbnail', authMiddleware, (req, res) => {
 
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/blogcast', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'blog.html'));
+});
+
+app.get('/blogcast/:slug', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'blog.html'));
+});
+
+app.get('/blog-post/:id', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'blog.html'));
 });
 
 app.get("/", (req, res) => {

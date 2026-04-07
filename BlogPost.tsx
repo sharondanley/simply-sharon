@@ -1,13 +1,9 @@
-/**
- * Simply Sharon - Blog Post Page
- * Figma-accurate layout: 1920px scaled, white background, Italianno/Source Sans/Helvetica
- * Static version — no backend required.
- */
-
-import { Link } from "wouter";
-import { CommentSection } from "@/components/CommentSection";
-import { SiteNavbar } from "@/components/SiteNavbar";
-import { SiteFooter } from "@/components/SiteFooter";
+import { useEffect, useMemo, useState } from "react";
+import { CommentSection } from "./src/components/CommentSection";
+import { SiteNavbar } from "./src/components/SiteNavbar";
+import { SiteFooter } from "./src/components/SiteFooter";
+import { ScaledPage } from "./src/components/ScaledPage";
+import { BlogBlock, BlogPostRecord, fetchBlogPostById, fetchBlogPostBySlug, formatArchiveDate, getPostLeadText, toEmbedUrl } from "./src/blogData";
 
 // ─── CDN Assets (Figma node-id mapped) ───────────────────────────────────────
 const ASSETS = {
@@ -25,213 +21,182 @@ const ASSETS = {
   commentSection:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/124-76_ee23175d.webp",
 };
 
-const NAV_LINKS = [
-  { label: "Blogcast",     href: "/blogcast" },
-  { label: "Make-Betters", href: "/#make-betters" },
-  { label: "Poise",        href: "/#poise" },
-  { label: "About",        href: "/#about" },
-  { label: "Archives",     href: "/blogcast" },
-  { label: "Contact",      href: "/#connect" },
-];
+function renderBlock(block: BlogBlock, index: number) {
+  switch (block.type) {
+    case "heading":
+      return (
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "16px 116px 10px" }}>
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        </div>
+      );
+    case "quote":
+      return (
+        <div key={block.id || index} style={{ width: "1650px", padding: "0 116px", display: "flex", flexDirection: "column", gap: "28px" }}>
+          <div style={{ alignSelf: "stretch", padding: "37px 0", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "43px" }}>
+            <div style={{ alignSelf: "stretch", padding: "10px" }}>
+              <div style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+            </div>
+            {block.caption && (
+              <div style={{ padding: "10px 47px" }}>
+                <span style={{ fontFamily: "Italianno", fontSize: "64px", lineHeight: "80px", color: "#000" }}>{block.caption}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    case "image":
+      return block.url ? (
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <img src={block.url} alt={block.caption || ""} style={{ maxWidth: "1200px", maxHeight: "720px", objectFit: "cover", borderRadius: "16px" }} />
+            {block.caption && <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "28px", lineHeight: "34px", color: "#6b7280" }}>{block.caption}</span>}
+          </div>
+        </div>
+      ) : null;
+    case "video": {
+      const embedUrl = toEmbedUrl(block.url);
+      return embedUrl ? (
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
+          <div style={{ width: "756px", height: "432.55px", borderRadius: "18px", overflow: "hidden", background: "#000" }}>
+            <iframe src={embedUrl} title={block.caption || "Embedded video"} style={{ width: "100%", height: "100%", border: 0 }} allowFullScreen />
+          </div>
+        </div>
+      ) : null;
+    }
+    case "divider":
+      return (
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "24px 116px" }}>
+          <div style={{ width: "100%", borderTop: "1px solid #000" }} />
+        </div>
+      );
+    default:
+      return (
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        </div>
+      );
+  }
+}
 
-// Viewport-proportional scale: 1920px design shrinks to fit any viewport
-const SCALE = "min(1, calc(100vw / 1920))";
+export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
+  const [post, setPost] = useState<BlogPostRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-export default function BlogPost() {
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    const request = slug ? fetchBlogPostBySlug(slug) : id ? fetchBlogPostById(id) : Promise.reject(new Error("No post requested"));
+
+    request
+      .then((data) => {
+        if (cancelled) return;
+        setPost(data);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setPost(null);
+        setError(err instanceof Error ? err.message : "Failed to load post");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, slug]);
+
+  const leadText = useMemo(() => (post ? getPostLeadText(post) : ""), [post]);
+  const bodyBlocks = post?.blocks || [];
+
   return (
     <div style={{ overflowX: "hidden", background: "#fff" }}>
-
-      {/* ── NAVBAR ── */}
       <SiteNavbar />
-
-      {/* ── BLOG PAGE CONTAINER ── */}
-      <div style={{ width: "100vw", overflow: "hidden", position: "relative" }}>
-        <div style={{
-          width: "1920px",
-          transformOrigin: "top left", transform: `scale(${SCALE})`,
-          background: "#FFFFFF",
-          display: "flex", flexDirection: "column", alignItems: "flex-start",
-          padding: "0 135px 80px",
-          gap: "43px",
-        }}>
-
-          {/* Breadcrumb */}
+      <ScaledPage watchKey={`${post?.id || "missing"}-${loading}-${bodyBlocks.length}`}>
+        <div style={{ width: "1920px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "43px" }}>
           <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "10px", paddingTop: "20px" }}>
-            <div style={{ padding: "10px" }}>
-              <Link href="/"><img src={ASSETS.breadcrumbIcon} alt="home" style={{ width: "29px", height: "29px", cursor: "pointer" }} /></Link>
-            </div>
+            <a href="/" style={{ padding: "10px" }}><img src={ASSETS.breadcrumbIcon} alt="home" style={{ width: "29px", height: "29px", cursor: "pointer" }} /></a>
             <div style={{ padding: "10px" }}>
               <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "24px", fontWeight: 700, color: "#000" }}>
-                <Link href="/"><span style={{ cursor: "pointer" }}>home</span></Link>
+                <a href="/" style={{ cursor: "pointer", textDecoration: "none", color: "inherit" }}>home</a>
                 {" / "}
-                <Link href="/blogcast"><span style={{ cursor: "pointer" }}>Blogcast Home</span></Link>
-                {" / Timeless Self-Mastery Post"}
+                <a href="/blogcast" style={{ cursor: "pointer", textDecoration: "none", color: "inherit" }}>Blogcast Home</a>
+                {` / ${post?.title || "Blog Post"}`}
               </span>
             </div>
           </div>
 
-          {/* Post header */}
           <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", overflow: "hidden" }}>
-              {/* "The Blogcast" */}
               <div style={{ alignSelf: "stretch", padding: "0 156px", display: "flex", justifyContent: "center" }}>
                 <span style={{ fontFamily: "Italianno", fontSize: "96px", lineHeight: "120px", color: "#000", textAlign: "center" }}>The Blogcast</span>
               </div>
-              {/* Subtitle */}
               <div style={{ alignSelf: "stretch", padding: "0 42px", display: "flex", justifyContent: "center" }}>
                 <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "36px", lineHeight: "45px", fontWeight: 700, color: "#000", textAlign: "center" }}>Beauty · Wellness · Wisdom</span>
               </div>
-              {/* Post title */}
               <div style={{ alignSelf: "stretch", padding: "46px 10px 0", display: "flex", justifyContent: "center" }}>
-                <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "64px", lineHeight: "80px", fontWeight: 700, color: "#000", textAlign: "center" }}>Timeless Self-Mastery Post</span>
+                <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "64px", lineHeight: "80px", fontWeight: 700, color: "#000", textAlign: "center" }}>{post?.title || "Loading post..."}</span>
               </div>
             </div>
-            {/* Separator bar */}
             <div style={{ padding: "36px 10px" }}>
               <div style={{ width: "707px", height: "0", borderTop: "7px solid #000" }} />
             </div>
           </div>
 
-          {/* Post intro section */}
+          {loading && (
+            <div style={{ width: "100%", padding: "60px 0", textAlign: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "40px", color: "#4b5563" }}>
+              Loading post...
+            </div>
+          )}
+
+          {!loading && error && (
+            <div style={{ width: "100%", padding: "60px 0", textAlign: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "40px", color: "#991b1b" }}>
+              {error}
+            </div>
+          )}
+
+          {!loading && post && (
+            <>
           <div style={{ alignSelf: "stretch", padding: "0 116px", display: "flex", flexDirection: "column", gap: "129px" }}>
             <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "center", gap: "46px" }}>
-              {/* Left: text */}
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
                 <div style={{ padding: "10px" }}>
                   <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", fontStyle: "italic", color: "#A3A3A3" }}>
-                    Aug 12, 2025 | Ep 5<br />By: Sharon Danley, Master Beauty Mentor
+                    {formatArchiveDate(post.publishedAt || post.createdAt)}{post.episode ? ` | Ep ${post.episode}` : ""}<br />By: {post.authorName || "Sharon Danley"}
                   </span>
                 </div>
                 <div style={{ alignSelf: "stretch" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-                    Over the years, many of you have followed my reflections under the banner of Personal Mastery—a space where we explored beauty, resilience, and what it means to live from the inside out. Today, I'm thrilled to share that this blog, like all of us, is evolving.
+                    {leadText}
                   </span>
                 </div>
-                <div style={{ alignSelf: "stretch" }}>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }}>
-                    Welcome To Timeless Self Mastery
-                  </span>
-                </div>
-                <div style={{ alignSelf: "stretch" }}>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-                    This refreshed title reflects the same heart and soul, now expressed with even greater clarity for where we are today.
-                  </span>
-                </div>
+                {post.subtitle && (
+                  <div style={{ alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }}>
+                      {post.subtitle}
+                    </span>
+                  </div>
+                )}
               </div>
-              {/* Right: Sharon portrait */}
               <div>
-                <img src={ASSETS.sharonPortrait} alt="Sharon Danley" style={{ width: "372px", height: "483px", objectFit: "cover" }} />
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover" }} />
               </div>
             </div>
           </div>
 
-          {/* Body paragraph 1 */}
-          <div style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-            <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-              The wisdom hasn't changed—but the context has. As women over 60, we're not fading into the background. We're editing, refining, and owning every part of our lives—body, mind, and spirit—with a deeper sense of purpose.
-              <br /><br />
-              <strong>Timeless Self Mastery</strong> is about cultivating strength, simplicity, style &amp; grace in a world that often misunderstands mature beauty. It's about honouring the path we've walked while staying curious, current, and courageously engaged.
-              <br /><br />
-              You'll find practical insights, soulful reflections, and thoughtful alternatives to what society tries to prescribe for aging. And yes—<strong>beauty rituals will still play a fundamental part</strong>, because they're not just surface work—they're soul work.
-              <br /><br />
-              <strong>A Quick Note on the Podcast</strong><br />
-              If you followed my earlier video reflections and conversations in <strong>"Sharon's Soapbox &amp; Other Stuff"</strong> playlist on YouTube, you'll find them archived into my <strong>new Podcast:</strong>
-            </span>
-          </div>
+          {bodyBlocks.map(renderBlock)}
 
-          {/* Video thumbnail */}
-          <div style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
-            <a href="https://www.youtube.com/@SimplySharonTips/featured" target="_blank" rel="noopener noreferrer">
-              <img
-                src={ASSETS.videoThumbnail}
-                alt="YouTube video thumbnail"
-                style={{ width: "756px", height: "432.55px", objectFit: "cover", cursor: "pointer", transition: "opacity 0.2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-              />
-            </a>
-          </div>
-
-          {/* Body paragraph 2 */}
-          <div style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-            <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-              Those viewpoints and insights still carry weight, and I invite you to revisit them along with new material and more coming regularly.
-              <br /><br />
-              As you read the posts that follow—or listen on the Podcast—I invite you to linger with what resonates. This is more than content. It's a collection of real moments, seasoned insight, and beauty beyond the mirror. I'm so glad you're here.
-            </span>
-          </div>
-
-          {/* Bold CTA 1 */}
-          <div style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-            <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", fontWeight: 700, color: "#000" }}>
-              Want to stay updated? Click the RSS link below to subscribe.
-            </span>
-          </div>
-
-          {/* Bold CTA 2 */}
-          <div style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-            <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", fontWeight: 700, color: "#000" }}>
-              Previous posts will appear below in the "Archive" with the most recent first.
-            </span>
-          </div>
-
-          {/* Closing paragraph */}
-          <div style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-            <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-              Thank you for your openness to evolve. Here's to mastering not just the self—but doing so with grace, grit, and a little glam.
-            </span>
-          </div>
-
-          {/* Episode's Closing Quote */}
-          <div style={{ width: "1650px", padding: "0 116px", display: "flex", flexDirection: "column", gap: "28px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "113px" }}>
-              <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "48px", lineHeight: "60px", fontWeight: 700, color: "#000" }}>
-                Episode's Closing Quote
-              </span>
-              {/* Quote block */}
-              <div style={{ alignSelf: "stretch", padding: "37px 0", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "43px" }}>
-                <div style={{ alignSelf: "stretch", padding: "10px" }}>
-                  <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }}>
-                    "What you do speaks so loudly that I can't hear anything you say."
-                  </span>
-                </div>
-                <div style={{ padding: "10px 47px" }}>
-                  <span style={{ fontFamily: "Italianno", fontSize: "64px", lineHeight: "80px", color: "#000" }}>
-                    - Ralph Waldo Emerson
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Signature block */}
-          <div style={{ alignSelf: "stretch", padding: "0 116px", display: "flex", flexDirection: "column", gap: "39px" }}>
-            <div style={{ alignSelf: "stretch", padding: "10px" }}>
-              <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }}>
-                With Warmth &amp; Wisdom,
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-              <div style={{ padding: "10px" }}>
-                <span style={{ fontFamily: "Italianno", fontSize: "96px", lineHeight: "120px", color: "#000" }}>Sharon</span>
-              </div>
-              <div style={{ padding: "10px" }}>
-                <img src={ASSETS.heartEmoji} alt="heart" style={{ width: "52px", height: "52px" }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Functional comment section */}
           <div style={{ width: "1574px", padding: "10px 0" }}>
             <CommentSection />
           </div>
-
+            </>
+          )}
         </div>
-      </div>
-
-      {/* ── FOOTER ── */}
+      </ScaledPage>
       <SiteFooter />
-
     </div>
   );
 }
