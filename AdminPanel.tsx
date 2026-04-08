@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, GripVertical, Image, Type, Quote, Video,
   Bold, Italic, Underline, Hash, Eye, EyeOff, Save, ArrowLeft, Upload,
-  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil,
+  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil, MessageSquare, ExternalLink,
 } from "lucide-react";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -55,6 +55,26 @@ type PostDetail = PostItem & {
   blocks: Block[];
   published: boolean;
   authorName?: string | null;
+};
+
+type CommentItem = {
+  id: number;
+  postId: number;
+  parentId: number | null;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  isVerifiedAuthor?: number;
+  postTitle: string;
+  postSlug: string;
+};
+
+type DashboardStats = {
+  total: number;
+  published: number;
+  drafts: number;
+  commentsTotal?: number;
+  commentsByPost?: Array<{ postId: number; postTitle: string; postSlug: string; commentsCount: number }>;
 };
 
 // ─── API stubs — replace each body with your actual backend call ──────────────
@@ -160,10 +180,26 @@ const API = {
   },
 
   /** Return post counts for the dashboard. */
-  async getStats(): Promise<{ total: number; published: number; drafts: number }> {
+  async getStats(): Promise<DashboardStats> {
     const r = await fetch("/api/admin/stats", { credentials: "same-origin" });
     if (!r.ok) throw new Error("Failed to load stats");
     return r.json();
+  },
+
+  async listComments(): Promise<{ items: CommentItem[] }> {
+    const r = await fetch("/api/admin/comments", { credentials: "same-origin" });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to load comments");
+    return data as { items: CommentItem[] };
+  },
+
+  async deleteComment(id: number): Promise<void> {
+    const r = await fetch(`/api/admin/comments/${id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to delete comment");
   },
 
   /**
@@ -200,6 +236,16 @@ function useAdminDarkMode() {
     return next;
   });
   return { dark, toggle };
+}
+
+function stripHtml(value: string) {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function formatDateTime(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString();
 }
 
 // ─── Block types ──────────────────────────────────────────────────────────────
@@ -439,11 +485,11 @@ function BlockEditor({
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 4v6M4 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
       </div>
-      <div className={`flex-shrink-0 mt-2 w-7 h-7 rounded flex items-center justify-center ${badgeBg}`}>
+      <div className={`shrink-0 mt-2 w-7 h-7 rounded flex items-center justify-center ${badgeBg}`}>
         <BlockIcon type={block.type} />
       </div>
       <div className="flex-1 min-w-0">{renderInput()}</div>
-      <button onClick={onDelete} className={`flex-shrink-0 mt-2 p-1.5 opacity-0 group-hover:opacity-100 transition-all ${deleteColor}`} title="Delete block">
+      <button onClick={onDelete} className={`shrink-0 mt-2 p-1.5 opacity-0 group-hover:opacity-100 transition-all ${deleteColor}`} title="Delete block">
         <Trash2 size={16} />
       </button>
     </div>
@@ -727,7 +773,7 @@ function PostEditor({
 
   if (loadingPost) {
     return (
-      <div className={`rounded-xl border p-10 flex items-center justify-center min-h-[320px] ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
+      <div className={`rounded-xl border p-10 flex items-center justify-center min-h-80 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
         <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${dark ? "border-gray-300" : "border-black"}`} />
       </div>
     );
@@ -806,7 +852,7 @@ function PostEditor({
             rows={2}
             className={inputClass + " resize-none"}
           />
-          <div className={`border rounded-xl p-4 flex flex-col min-h-[320px] ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
+          <div className={`border rounded-xl p-4 flex flex-col min-h-80 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
             <p className={`text-sm font-semibold font-['Source_Sans_3'] mb-3 ${dark ? "text-gray-400" : "text-gray-500"}`}>Content Blocks</p>
             {blocks.map((block, idx) => (
               <BlockEditor
@@ -1076,7 +1122,7 @@ function PostsList({
               }`}
             >
               {post.thumbnailUrl && (
-                <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />
+                <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <button
@@ -1123,6 +1169,125 @@ function PostsList({
         </div>
       )}
     </>
+  );
+}
+
+function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolean; refreshKey?: number; onChanged?: () => void }) {
+  const [items, setItems] = useState<CommentItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setIsLoading(true);
+    API.listComments()
+      .then((data) => setItems(data.items || []))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Failed to load comments";
+        toast.error(msg);
+        setItems([]);
+      })
+      .finally(() => setIsLoading(false));
+  }, [refreshKey]);
+
+  const filtered = items.filter((item) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [item.authorName, stripHtml(item.content), item.postTitle].join(" ").toLowerCase().includes(q);
+  });
+
+  const deleteComment = async (id: number) => {
+    const next = window.confirm("Delete this comment permanently?");
+    if (!next) return;
+    try {
+      await API.deleteComment(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      toast.success("Comment deleted");
+      onChanged?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete comment";
+      toast.error(msg);
+    }
+  };
+
+  const inputClass = `w-full px-4 py-2.5 border rounded-lg text-base font-['Source_Sans_3'] focus:outline-none focus:ring-2 transition-colors ${
+    dark
+      ? "border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-gray-400"
+      : "border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:ring-black"
+  }`;
+
+  const tableShell = dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200";
+  const tableHead = dark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700";
+  const rowDivider = dark ? "border-gray-700" : "border-gray-200";
+  const textMain = dark ? "text-gray-100" : "text-gray-900";
+  const textMuted = dark ? "text-gray-400" : "text-gray-600";
+
+  return (
+    <div>
+      <div className="mb-4">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search comments by author, content, or post..."
+          className={inputClass}
+        />
+      </div>
+
+      <div className={`rounded-xl border overflow-hidden ${tableShell}`}>
+        <div className={`grid grid-cols-[180px_1fr_180px_1fr_200px] gap-4 px-5 py-3 text-sm font-bold font-['Source_Sans_3'] ${tableHead}`}>
+          <div>Author</div>
+          <div>Content</div>
+          <div>Date</div>
+          <div>Post Title</div>
+          <div>Actions</div>
+        </div>
+
+        {isLoading ? (
+          <div className="p-5 space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className={`h-14 rounded-lg animate-pulse ${dark ? "bg-gray-700" : "bg-gray-100"}`} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className={`p-10 text-center font-['Source_Sans_3'] ${textMuted}`}>
+            No comments found.
+          </div>
+        ) : (
+          filtered.map((item) => (
+            <div key={item.id} className={`grid grid-cols-[180px_1fr_180px_1fr_200px] gap-4 px-5 py-4 border-t ${rowDivider}`}>
+              <div className={`font-semibold font-['Source_Sans_3'] ${textMain}`}>{item.authorName}</div>
+              <div className={`font-['Source_Sans_3'] ${textMain}`}>{stripHtml(item.content).slice(0, 160) || "(empty)"}</div>
+              <div className={`font-['Source_Sans_3'] ${textMuted}`}>{formatDateTime(item.createdAt)}</div>
+              <div className={`font-['Source_Sans_3'] ${textMain}`}>{item.postTitle}</div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/blogcast/${item.postSlug}#comment-${item.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded text-sm font-bold font-['Source_Sans_3'] border transition-colors ${
+                    dark
+                      ? "border-gray-500 text-gray-200 hover:border-white hover:text-white"
+                      : "border-gray-300 text-gray-700 hover:border-black hover:text-black"
+                  }`}
+                >
+                  <ExternalLink size={14} /> View on Post
+                </a>
+                <button
+                  onClick={() => { void deleteComment(item.id); }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded text-sm font-bold font-['Source_Sans_3'] border transition-colors ${
+                    dark
+                      ? "border-red-700 text-red-300 hover:bg-red-900/30"
+                      : "border-red-300 text-red-600 hover:bg-red-50"
+                  }`}
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1207,7 +1372,7 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
 
 // ─── Main admin page ──────────────────────────────────────────────────────────
 
-type AdminView = "dashboard" | "posts" | "new-post" | "edit-post";
+type AdminView = "dashboard" | "posts" | "comments" | "new-post" | "edit-post";
 
 export default function AdminPanel() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -1215,7 +1380,8 @@ export default function AdminPanel() {
   const [view, setView] = useState<AdminView>("dashboard");
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
-  const [stats, setStats] = useState<{ total: number; published: number; drafts: number } | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
   const { dark, toggle: toggleDark } = useAdminDarkMode();
 
   useEffect(() => {
@@ -1294,7 +1460,7 @@ export default function AdminPanel() {
   return (
     <div className={`min-h-screen ${bg} flex`}>
       {/* Sidebar */}
-      <aside className={`w-64 border-r flex flex-col flex-shrink-0 ${sidebarBg}`}>
+      <aside className={`w-64 border-r flex flex-col shrink-0 ${sidebarBg}`}>
         <div className={`p-6 border-b ${dividerColor}`}>
           <h1 className={`text-4xl font-normal font-['Italianno'] ${textPrimary}`}>Simply Sharon</h1>
           <p className={`text-sm font-['Source_Sans_3'] mt-1 ${textMuted}`}>Admin Dashboard</p>
@@ -1304,6 +1470,7 @@ export default function AdminPanel() {
           {([
             { id: "dashboard" as AdminView, label: "Dashboard", icon: <Settings size={18} /> },
             { id: "posts" as AdminView, label: "All Posts", icon: <FileText size={18} /> },
+            { id: "comments" as AdminView, label: "Comments", icon: <MessageSquare size={18} /> },
             { id: "new-post" as AdminView, label: "New Post", icon: <Plus size={18} /> },
           ] as const).map(({ id, label, icon }) => (
             <button
@@ -1333,7 +1500,7 @@ export default function AdminPanel() {
             <img
               src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || "Admin")}`}
               alt={user.name || "Admin"}
-              className="w-10 h-10 rounded-full flex-shrink-0"
+              className="w-10 h-10 rounded-full shrink-0"
             />
             <div className="min-w-0">
               <p className={`text-sm font-bold font-['Source_Sans_3'] truncate ${textPrimary}`}>{user.name || "Admin"}</p>
@@ -1368,11 +1535,12 @@ export default function AdminPanel() {
           <div>
             <h2 className={`text-3xl font-bold font-['Source_Sans_3'] mb-2 ${textPrimary}`}>Welcome back, {user.name?.split(" ")[0] || "Admin"}</h2>
             <p className={`text-base font-['Source_Sans_3'] mb-8 ${textMuted}`}>Here's an overview of your content.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
               {[
                 { label: "Total Posts", value: stats ? String(stats.total) : "—", icon: <FileText size={22} /> },
                 { label: "Published", value: stats ? String(stats.published) : "—", icon: <Eye size={22} /> },
                 { label: "Drafts", value: stats ? String(stats.drafts) : "—", icon: <EyeOff size={22} /> },
+                { label: "Total Comments", value: stats ? String(stats.commentsTotal || 0) : "—", icon: <MessageSquare size={22} /> },
               ].map(({ label, value, icon }) => (
                 <div key={label} className={`rounded-xl border p-6 flex items-center gap-4 ${cardBg}`}>
                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${statIconBg}`}>{icon}</div>
@@ -1382,6 +1550,30 @@ export default function AdminPanel() {
                   </div>
                 </div>
               ))}
+            </div>
+            <div className={`rounded-xl border p-6 mb-8 ${cardBg}`}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Top Posts by Comment Count</h3>
+                <button onClick={() => setView("comments")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
+                  Moderate comments →
+                </button>
+              </div>
+              {(stats?.commentsByPost || []).length === 0 ? (
+                <p className={`font-['Source_Sans_3'] ${textMuted}`}>No comment activity yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(stats?.commentsByPost || []).map((item) => (
+                    <div key={item.postId} className={`flex items-center justify-between p-4 rounded-lg border ${dark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"}`}>
+                      <a href={`/blogcast/${item.postSlug}`} target="_blank" rel="noreferrer" className={`font-bold font-['Source_Sans_3'] hover:underline ${textPrimary}`}>
+                        {item.postTitle}
+                      </a>
+                      <span className={`text-sm px-2.5 py-1 rounded-full font-bold font-['Source_Sans_3'] ${dark ? "bg-gray-700 text-gray-200" : "bg-gray-200 text-gray-700"}`}>
+                        {item.commentsCount} comments
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className={`rounded-xl border p-6 ${cardBg}`}>
               <div className="flex items-center justify-between mb-5">
@@ -1409,6 +1601,26 @@ export default function AdminPanel() {
               </button>
             </div>
             <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
+          </div>
+        )}
+
+        {view === "comments" && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={`text-3xl font-bold font-['Source_Sans_3'] ${textPrimary}`}>Comments</h2>
+              <button
+                onClick={() => {
+                  setCommentsRefreshKey((k) => k + 1);
+                  setPostsRefreshKey((k) => k + 1);
+                }}
+                className={`flex items-center gap-2 px-5 py-3 text-base font-bold font-['Source_Sans_3'] rounded-lg transition-colors ${
+                  dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
+                }`}
+              >
+                Refresh
+              </button>
+            </div>
+            <CommentsModerationTable dark={dark} refreshKey={commentsRefreshKey} onChanged={() => setPostsRefreshKey((k) => k + 1)} />
           </div>
         )}
 

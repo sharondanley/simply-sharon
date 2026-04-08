@@ -255,16 +255,25 @@ async function ensureCommentsTable() {
         `CREATE TABLE IF NOT EXISTS comments (
             id INT AUTO_INCREMENT PRIMARY KEY,
             post_id INT NOT NULL,
+            parent_id INT NULL,
             author_name VARCHAR(100) NOT NULL,
             content LONGTEXT NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            likes_count INT NOT NULL DEFAULT 0,
+            hearts_count INT NOT NULL DEFAULT 0,
+            is_verified_author TINYINT(1) NOT NULL DEFAULT 0,
             INDEX idx_comments_post_id (post_id),
+            INDEX idx_comments_parent_id (parent_id),
             CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
     );
 
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id INT NULL');
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_name VARCHAR(100) NULL');
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes_count INT NOT NULL DEFAULT 0');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS hearts_count INT NOT NULL DEFAULT 0');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_verified_author TINYINT(1) NOT NULL DEFAULT 0');
 
     try {
         await dbPromise.query(
@@ -331,8 +340,10 @@ app.get('/api/blogcast/comments', async (req, res) => {
 
     try {
         const [rows] = await dbPromise.query(
-            `SELECT id, post_id AS postId, author_name AS authorName, content,
-                    created_at AS createdAt
+            `SELECT id, post_id AS postId, parent_id AS parentId,
+                    author_name AS authorName, content, created_at AS createdAt,
+                    likes_count AS likesCount, hearts_count AS heartsCount,
+                    is_verified_author AS isVerifiedAuthor
              FROM comments
              WHERE post_id = ?
              ORDER BY created_at ASC`,
@@ -346,16 +357,34 @@ app.get('/api/blogcast/comments', async (req, res) => {
 
 app.post('/api/blogcast/comments', async (req, res) => {
     const postId = parseInt(req.body.postId, 10);
-    const authorName = String(req.body.authorName || '').trim();
+    const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
+    let authorName = String(req.body.authorName || '').trim();
     const content = String(req.body.content || '').trim();
 
     if (!postId || postId < 1) return res.status(400).json({ error: 'Invalid post ID' });
-    if (!authorName) return res.status(400).json({ error: 'Author name is required' });
     if (!content) return res.status(400).json({ error: 'Comment content is required' });
 
     const safeContent = content
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
         .replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+
+    let isVerifiedAuthor = 0;
+    const token = req.cookies?.admin_token;
+    if (token) {
+        try {
+            const admin = jwt.verify(token, JWT_SECRET);
+            if (admin?.role === 'admin') {
+                isVerifiedAuthor = 1;
+                if (!authorName) {
+                    authorName = String(admin.name || 'Verified Author').trim();
+                }
+            }
+        } catch {
+            // Ignore invalid token and continue as anonymous/non-admin.
+        }
+    }
+
+    if (!authorName) return res.status(400).json({ error: 'Author name is required' });
 
     try {
         const [postRows] = await dbPromise.query(
@@ -364,20 +393,64 @@ app.post('/api/blogcast/comments', async (req, res) => {
         );
         if (!postRows[0]) return res.status(404).json({ error: 'Post not found' });
 
+        if (parentId) {
+            const [parentRows] = await dbPromise.query(
+                'SELECT id FROM comments WHERE id = ? AND post_id = ? LIMIT 1',
+                [parentId, postId]
+            );
+            if (!parentRows[0]) return res.status(400).json({ error: 'Parent comment not found' });
+        }
+
         const [result] = await dbPromise.query(
-            `INSERT INTO comments (post_id, author_name, content)
-             VALUES (?, ?, ?)`,
-            [postId, authorName, safeContent]
+            `INSERT INTO comments (post_id, parent_id, author_name, content, is_verified_author)
+             VALUES (?, ?, ?, ?, ?)`,
+            [postId, parentId, authorName, safeContent, isVerifiedAuthor]
         );
 
         const [rows] = await dbPromise.query(
-            `SELECT id, post_id AS postId, author_name AS authorName, content,
-                    created_at AS createdAt
+            `SELECT id, post_id AS postId, parent_id AS parentId,
+                    author_name AS authorName, content, created_at AS createdAt,
+                    likes_count AS likesCount, hearts_count AS heartsCount,
+                    is_verified_author AS isVerifiedAuthor
              FROM comments
              WHERE id = ? LIMIT 1`,
             [result.insertId]
         );
         res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/blogcast/comments/:id/reaction', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const reaction = String(req.body?.reaction || '').trim().toLowerCase();
+
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid comment ID' });
+    if (!['like', 'heart'].includes(reaction)) {
+        return res.status(400).json({ error: 'Invalid reaction type' });
+    }
+
+    try {
+        const [result] = await dbPromise.query(
+            reaction === 'like'
+                ? 'UPDATE comments SET likes_count = likes_count + 1 WHERE id = ?'
+                : 'UPDATE comments SET hearts_count = hearts_count + 1 WHERE id = ?',
+            [id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Comment not found' });
+        }
+
+        const [rows] = await dbPromise.query(
+            `SELECT likes_count AS likesCount, hearts_count AS heartsCount
+             FROM comments
+             WHERE id = ? LIMIT 1`,
+            [id]
+        );
+
+        res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -701,7 +774,58 @@ app.get('/api/admin/stats', authMiddleware, async (req, res) => {
         const [[{ published }]] = await dbPromise.query(
             "SELECT COUNT(*) AS published FROM posts WHERE deleted_at IS NULL AND (status = 'published' OR published_at IS NOT NULL)"
         );
-        res.json({ total: Number(total), published: Number(published), drafts: Number(total) - Number(published) });
+        const [[{ commentsTotal }]] = await dbPromise.query(
+            'SELECT COUNT(*) AS commentsTotal FROM comments'
+        );
+        const [commentsByPost] = await dbPromise.query(
+            `SELECT p.id AS postId, p.title AS postTitle, p.slug AS postSlug, COUNT(c.id) AS commentsCount
+             FROM posts p
+             LEFT JOIN comments c ON c.post_id = p.id
+             WHERE p.deleted_at IS NULL
+             GROUP BY p.id, p.title, p.slug
+             ORDER BY commentsCount DESC, p.created_at DESC
+             LIMIT 10`
+        );
+        res.json({
+            total: Number(total),
+            published: Number(published),
+            drafts: Number(total) - Number(published),
+            commentsTotal: Number(commentsTotal),
+            commentsByPost,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/comments', authMiddleware, async (req, res) => {
+    try {
+        const [rows] = await dbPromise.query(
+            `SELECT c.id, c.post_id AS postId, c.parent_id AS parentId,
+                    c.author_name AS authorName, c.content, c.created_at AS createdAt,
+                    c.is_verified_author AS isVerifiedAuthor,
+                    p.title AS postTitle, p.slug AS postSlug
+             FROM comments c
+             INNER JOIN posts p ON p.id = c.post_id
+             WHERE p.deleted_at IS NULL
+             ORDER BY c.created_at DESC`
+        );
+        res.json({ items: rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/admin/comments/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid comment ID' });
+
+    try {
+        const [result] = await dbPromise.query('DELETE FROM comments WHERE id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Comment not found' });
+        }
+        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

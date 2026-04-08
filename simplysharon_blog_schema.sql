@@ -51,11 +51,16 @@ CREATE TABLE IF NOT EXISTS images (
 CREATE TABLE IF NOT EXISTS comments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
+    parent_id INT NULL,
     author_name VARCHAR(100) NOT NULL,
     content LONGTEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    likes_count INT NOT NULL DEFAULT 0,
+    hearts_count INT NOT NULL DEFAULT 0,
+    is_verified_author TINYINT(1) NOT NULL DEFAULT 0,
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     INDEX idx_post_id (post_id),
+    INDEX idx_parent_id (parent_id),
     INDEX idx_created_at (created_at DESC)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 -- Create reactions table (likes/reactions)
