@@ -641,9 +641,11 @@ app.put('/api/admin/personalization', authMiddleware, async (req, res) => {
 
 app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const limit = Math.min(parseInt(req.query.limit) || 12, 100);
     const offset = (page - 1) * limit;
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : '';
+    const date = typeof req.query.date === 'string' ? req.query.date.trim() : '';
 
     try {
         let items, total;
@@ -655,11 +657,20 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
                 const p = `%${search}%`;
                 params.push(p, p, p, p);
             }
+            if (status === 'published') {
+                where.push("(status = 'published' OR published_at IS NOT NULL)");
+            } else if (status === 'draft') {
+                where.push("(status = 'draft' OR published_at IS NULL)");
+            }
+            if (date) {
+                where.push('DATE(COALESCE(published_at, created_at)) = ?');
+                params.push(date);
+            }
             const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, subtitle, featured_image_url AS thumbnailUrl,
-                        topic, episode, published_at AS publishedAt
-                 FROM posts WHERE ${wc} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+                        topic, episode, published_at AS publishedAt, created_at AS createdAt
+                 FROM posts WHERE ${wc} ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             );
             [[{ total }]] = await dbPromise.query(
@@ -674,18 +685,27 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
                 where.push('title LIKE ?');
                 params.push(`%${search}%`);
             }
+            if (status === 'published') {
+                where.push('published_at IS NOT NULL');
+            } else if (status === 'draft') {
+                where.push('published_at IS NULL');
+            }
+            if (date) {
+                where.push('DATE(COALESCE(published_at, created_at)) = ?');
+                params.push(date);
+            }
             const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, NULL AS subtitle, featured_image_url AS thumbnailUrl,
-                        NULL AS topic, NULL AS episode, published_at AS publishedAt
-                 FROM posts WHERE ${wc} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+                        NULL AS topic, NULL AS episode, published_at AS publishedAt, created_at AS createdAt
+                 FROM posts WHERE ${wc} ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             );
             [[{ total }]] = await dbPromise.query(
                 `SELECT COUNT(*) AS total FROM posts WHERE ${wc}`, params
             );
         }
-        res.json({ items, total });
+        res.json({ items, total, page, limit, totalPages: Math.max(1, Math.ceil(Number(total) / limit)) });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

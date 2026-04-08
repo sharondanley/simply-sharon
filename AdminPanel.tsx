@@ -35,6 +35,7 @@ type PostItem = {
   topic?: string | null;
   episode?: number | null;
   publishedAt?: Date | string | null;
+  createdAt?: Date | string | null;
 };
 
 type CreatePostInput = {
@@ -125,9 +126,17 @@ const API = {
   },
 
   /** Return all posts (published + drafts) for the admin list. */
-  async listPosts(page: number, limit: number, search = ""): Promise<{ items: PostItem[]; total: number }> {
+  async listPosts(
+    page: number,
+    limit: number,
+    search = "",
+    status: "all" | "published" | "draft" = "all",
+    date = ""
+  ): Promise<{ items: PostItem[]; total: number; page: number; limit: number; totalPages: number }> {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (search.trim()) params.set("search", search.trim());
+    if (status !== "all") params.set("status", status);
+    if (date.trim()) params.set("date", date.trim());
     const r = await fetch(`/api/admin/posts?${params}`, {
       credentials: "same-origin",
     });
@@ -1099,21 +1108,37 @@ function PostsList({
   dark: boolean;
   refreshKey?: number;
 }) {
-  const [data, setData] = useState<{ items: PostItem[]; total: number } | null>(null);
+  const PAGE_SIZE = 10;
+  const [data, setData] = useState<{ items: PostItem[]; total: number; page: number; limit: number; totalPages: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [dateFilter, setDateFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
-  useEffect(() => {
+  const loadPosts = useCallback(async () => {
     setIsLoading(true);
+    try {
+      const result = await API.listPosts(page, PAGE_SIZE, search, statusFilter, dateFilter);
+      setData(result);
+    } catch {
+      toast.error("Failed to load posts");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, search, statusFilter, dateFilter]);
+
+  useEffect(() => {
     const tid = window.setTimeout(() => {
-      API.listPosts(1, 50, search)
-        .then(setData)
-        .catch(() => toast.error("Failed to load posts"))
-        .finally(() => setIsLoading(false));
+      void loadPosts();
     }, 200);
     return () => window.clearTimeout(tid);
-  }, [refreshKey, search]);
+  }, [loadPosts, refreshKey]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, dateFilter]);
 
   const confirmPost = confirmId !== null
     ? data?.items.find((p) => p.id === confirmId) ?? null
@@ -1125,11 +1150,7 @@ function PostsList({
     setConfirmId(null);
     try {
       await API.unlistPost(id);
-      setData((prev) =>
-        prev
-          ? { ...prev, items: prev.items.map((p) => p.id === id ? { ...p, publishedAt: null } : p) }
-          : prev
-      );
+      await loadPosts();
       toast.success("Post unlisted (saved as draft)");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -1143,9 +1164,7 @@ function PostsList({
     setConfirmId(null);
     try {
       await API.deletePost(id);
-      setData((prev) =>
-        prev ? { ...prev, items: prev.items.filter((p) => p.id !== id) } : prev
-      );
+      await loadPosts();
       toast.success("Post deleted");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -1159,6 +1178,13 @@ function PostsList({
       : "border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:ring-black"
   }`;
 
+  const buttonClass = dark
+    ? "border-gray-600 bg-gray-700 text-gray-100 hover:bg-gray-600"
+    : "border-gray-200 bg-white text-gray-900 hover:bg-gray-50";
+
+  const totalPages = Math.max(1, data?.totalPages || 1);
+  const hasFilters = Boolean(search.trim() || statusFilter !== "all" || dateFilter);
+
   return (
     <>
       {confirmPost && (
@@ -1171,16 +1197,48 @@ function PostsList({
         />
       )}
 
-      {/* Search */}
-      <div className="mb-4 relative">
-        <Search size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? "text-gray-400" : "text-gray-500"}`} />
+      <div className="mb-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_auto] gap-3 items-center">
+        <div className="relative">
+          <Search size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? "text-gray-400" : "text-gray-500"}`} />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by title, topic, or tag…"
+            className={`${inputClass} pl-11`}
+          />
+        </div>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | "published" | "draft")}
+          className={inputClass}
+          aria-label="Filter posts by status"
+        >
+          <option value="all">All statuses</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+        </select>
+
         <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by title, topic, or tag…"
-          className={`${inputClass} pl-11`}
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className={inputClass}
+          aria-label="Filter posts by date"
         />
+
+        <button
+          type="button"
+          onClick={() => {
+            setSearch("");
+            setStatusFilter("all");
+            setDateFilter("");
+          }}
+          className={`px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${buttonClass}`}
+        >
+          Clear Filters
+        </button>
       </div>
 
       {isLoading ? (
@@ -1193,64 +1251,118 @@ function PostsList({
         <div className={`text-center py-16 ${dark ? "text-gray-500" : "text-gray-400"}`}>
           <FileText size={48} className="mx-auto mb-4 opacity-30" />
           <p className="font-['Source_Sans_3'] text-lg">
-            {search ? "No posts matched your search." : "No posts yet. Create your first post!"}
+            {hasFilters ? "No posts matched the current filters." : "No posts yet. Create your first post!"}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {(data?.items ?? []).map((post) => (
-            <div
-              key={post.id}
-              className={`flex items-center gap-4 p-5 border rounded-xl hover:shadow-sm transition-shadow ${
-                dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-              }`}
-            >
-              {post.thumbnailUrl && (
-                <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => onEdit(post.id)}
-                  className={`font-bold text-base font-['Source_Sans_3'] truncate text-left w-full hover:underline ${dark ? "text-gray-100" : "text-gray-900"}`}
+        <>
+          <div className="space-y-3">
+            {(data?.items ?? []).map((post) => {
+              const displayDate = post.publishedAt || post.createdAt;
+              return (
+                <div
+                  key={post.id}
+                  className={`flex items-center gap-4 p-5 border rounded-xl hover:shadow-sm transition-shadow ${
+                    dark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                  }`}
                 >
-                  {post.title}
-                </button>
-                <div className="flex items-center gap-3 mt-1 flex-wrap">
-                  {post.topic && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>{post.topic}</span>}
-                  {post.episode && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>Ep. {post.episode}</span>}
-                  <span className={`text-sm px-2.5 py-0.5 rounded-full font-['Source_Sans_3'] font-semibold ${
-                    post.publishedAt
-                      ? dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800"
-                      : dark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"
-                  }`}>
-                    {post.publishedAt ? "Published" : "Draft"}
-                  </span>
+                  {post.thumbnailUrl && (
+                    <img src={post.thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => onEdit(post.id)}
+                      className={`font-bold text-base font-['Source_Sans_3'] truncate text-left w-full hover:underline ${dark ? "text-gray-100" : "text-gray-900"}`}
+                    >
+                      {post.title}
+                    </button>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      {post.topic && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>{post.topic}</span>}
+                      {post.episode && <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>Ep. {post.episode}</span>}
+                      {displayDate && (
+                        <span className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                          {new Date(displayDate).toLocaleDateString()}
+                        </span>
+                      )}
+                      <span className={`text-sm px-2.5 py-0.5 rounded-full font-['Source_Sans_3'] font-semibold ${
+                        post.publishedAt
+                          ? dark ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800"
+                          : dark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"
+                      }`}>
+                        {post.publishedAt ? "Published" : "Draft"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onEdit(post.id)}
+                      className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`}
+                      title="Edit"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <a href={`/blogcast/${post.slug}`} target="_blank" rel="noreferrer">
+                      <button className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`} title="Preview">
+                        <Eye size={18} />
+                      </button>
+                    </a>
+                    <button
+                      onClick={() => setConfirmId(post.id)}
+                      className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onEdit(post.id)}
-                  className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`}
-                  title="Edit"
-                >
-                  <Pencil size={18} />
-                </button>
-                <a href={`/blogcast/${post.slug}`} target="_blank" rel="noreferrer">
-                  <button className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-black"}`} title="Preview">
-                    <Eye size={18} />
-                  </button>
-                </a>
-                <button
-                  onClick={() => setConfirmId(post.id)}
-                  className={`p-2.5 transition-colors ${dark ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
-                  title="Delete"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <p className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-600"}`}>
+              Showing {data?.items.length || 0} of {data?.total || 0} posts
+            </p>
+            <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page <= 1}
+                className={`px-3.5 py-2 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${buttonClass}`}
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1)
+                .filter((n) => Math.abs(n - page) <= 1 || n === 1 || n === totalPages)
+                .map((n, index, arr) => (
+                  <div key={n} className="flex items-center gap-2">
+                    {index > 0 && arr[index - 1] !== n - 1 ? (
+                      <span className={`px-1 text-sm ${dark ? "text-gray-500" : "text-gray-400"}`}>…</span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setPage(n)}
+                      className={`w-10 h-10 rounded-full border text-sm font-bold font-['Source_Sans_3'] transition-colors ${
+                        page === n
+                          ? dark ? "bg-white text-black border-gray-400" : "bg-black text-white border-gray-400"
+                          : buttonClass
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  </div>
+                ))}
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={page >= totalPages}
+                className={`px-3.5 py-2 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${buttonClass}`}
+              >
+                Next
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        </>
       )}
     </>
   );
@@ -1278,6 +1390,8 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
     if (!q) return true;
     return [item.authorName, stripHtml(item.content), item.postTitle].join(" ").toLowerCase().includes(q);
   });
+
+  const parentAuthorById = new Map(items.map((item) => [item.id, item.authorName]));
 
   const deleteComment = async (id: number) => {
     const next = window.confirm("Delete this comment permanently?");
@@ -1349,7 +1463,7 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold font-['Source_Sans_3'] ${item.parentId ? (dark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700') : (dark ? 'bg-white/10 text-white' : 'bg-black text-white')}`}>
-                    {item.parentId ? `Reply to #${item.parentId}` : `Top-level comment #${item.id}`}
+                    {item.parentId ? `Reply to ${parentAuthorById.get(item.parentId) || 'original comment'}` : 'Top-level comment'}
                   </span>
                   <span className={`text-xs font-['Source_Sans_3'] ${textMuted}`}>
                     Likes {Number(item.likesCount || 0)} · Hearts {Number(item.heartsCount || 0)}
