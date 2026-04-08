@@ -1610,13 +1610,13 @@ export default function AdminPanel() {
         .admin-root .admin-script { font-family: Italianno, cursive !important; }
       `}</style>
       {/* Sidebar */}
-      <aside className={`w-64 border-r flex flex-col shrink-0 ${sidebarBg}`}>
+      <aside className={`w-64 border-r shrink-0 self-start sticky top-0 h-screen flex flex-col overflow-hidden ${sidebarBg}`}>
         <div className={`p-6 border-b ${dividerColor}`}>
           <h1 className={`admin-script text-4xl font-normal ${textPrimary}`}>Simply Sharon</h1>
           <p className={`text-sm font-['Source_Sans_3'] mt-1 ${textMuted}`}>Admin Dashboard</p>
         </div>
 
-        <nav className="flex-1 p-4 flex flex-col gap-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-1">
           {([
             { id: "dashboard" as AdminView, label: "Dashboard", icon: <Settings size={18} /> },
             { id: "posts" as AdminView, label: "All Posts", icon: <FileText size={18} /> },
@@ -1752,13 +1752,13 @@ export default function AdminPanel() {
                     onClick={() => setView("preferences")}
                     className="shrink-0 inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/90 text-black font-semibold hover:bg-white transition-colors"
                   >
-                    <Settings size={16} /> Edit Preferences
+                    <Settings size={16} /> Edit
                   </button>
                 </div>
               </div>
               <div className={`px-8 py-6 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
                 <p className={`text-xs uppercase tracking-[0.24em] mb-2 ${textMuted}`}>Quote of the Week</p>
-                <blockquote className={`text-xl md:text-2xl leading-relaxed ${textPrimary}`}>
+                <blockquote className={`admin-script text-[2.3rem] md:text-[3rem] leading-[1.1] font-normal ${textPrimary}`}>
                   “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
                 </blockquote>
               </div>

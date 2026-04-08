@@ -293,7 +293,7 @@ export default function BlogcastArchive() {
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 35 }}>
               {pageNumbers.map((n) => (
-                <button key={n} onClick={() => setPage(n)} style={{ width: 88, height: 88, background: page === n ? "#111111" : "#dadada", borderRadius: "50%", border: page === n ? "3px solid #f2d38b" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === n ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
+                <button key={n} onClick={() => setPage(n)} style={{ width: 88, height: 88, background: page === n ? "#111111" : "#dadada", borderRadius: "50%", border: page === n ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === n ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === n ? "#fff" : "#000" }}>{n}</span>
                 </button>
               ))}
@@ -302,7 +302,7 @@ export default function BlogcastArchive() {
                   <div style={{ padding: 10 }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>. . .</span>
                   </div>
-                  <button onClick={() => setPage(totalPages)} style={{ width: 88, height: 88, background: page === totalPages ? "#111111" : "#dadada", borderRadius: "50%", border: page === totalPages ? "3px solid #f2d38b" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === totalPages ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
+                  <button onClick={() => setPage(totalPages)} style={{ width: 88, height: 88, background: page === totalPages ? "#111111" : "#dadada", borderRadius: "50%", border: page === totalPages ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === totalPages ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === totalPages ? "#fff" : "#000" }}>{totalPages}</span>
                   </button>
                 </>
