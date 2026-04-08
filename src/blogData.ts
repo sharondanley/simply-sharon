@@ -50,6 +50,7 @@ export function fetchBlogcastPosts(params: {
   limit: number;
   search?: string;
   year?: string;
+  month?: string;
 }) {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -58,6 +59,7 @@ export function fetchBlogcastPosts(params: {
 
   if (params.search?.trim()) query.set("search", params.search.trim());
   if (params.year?.trim()) query.set("year", params.year.trim());
+  if (params.month?.trim()) query.set("month", params.month.trim());
 
   return fetchJson<ArchiveResponse>(`/api/blogcast/posts?${query.toString()}`);
 }

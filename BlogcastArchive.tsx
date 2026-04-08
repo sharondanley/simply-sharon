@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { SiteNavbar } from "./src/components/SiteNavbar";
-import { SiteFooter } from "./src/components/SiteFooter";
+import { SiteLayout } from "./src/components/SiteLayout";
 import { ScaledPage } from "./src/components/ScaledPage";
 import { ArchivePost, fetchBlogcastPosts, formatArchiveDate, stripHtml } from "./src/blogData";
 
@@ -26,7 +25,8 @@ const A = {
 export default function BlogcastArchive() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [timePeriod, setTimePeriod] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [posts, setPosts] = useState<ArchivePost[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -34,14 +34,14 @@ export default function BlogcastArchive() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, timePeriod]);
+  }, [search, selectedMonth, selectedYear]);
 
   useEffect(() => {
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       setLoading(true);
       setError("");
-      fetchBlogcastPosts({ page, limit: 4, search, year: timePeriod })
+      fetchBlogcastPosts({ page, limit: 4, search, year: selectedYear, month: selectedMonth })
         .then((data) => {
           if (cancelled) return;
           setPosts(data.items);
@@ -62,7 +62,7 @@ export default function BlogcastArchive() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [page, search, timePeriod]);
+  }, [page, search, selectedMonth, selectedYear]);
 
   const pageNumbers = useMemo(() => {
     if (totalPages <= 3) {
@@ -71,11 +71,74 @@ export default function BlogcastArchive() {
     return [1, 2, 3];
   }, [totalPages]);
 
+  const monthOptions = [
+    { value: "", label: "Select Month" },
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
+
+  const yearOptions = ["", "2026", "2025", "2024", "2023"];
+
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", overflowX: "hidden" }}>
-      <SiteNavbar />
-      <ScaledPage watchKey={`${posts.length}-${loading}-${page}-${totalPages}`}>
+    <SiteLayout background="#fff" includeFooter={true}>
+      <ScaledPage watchKey={`${posts.length}-${loading}-${page}-${totalPages}-${selectedMonth}-${selectedYear}`}>
         <div style={{ width: 1920 }}>
+          <style>{`
+            .blogcast-action-pill {
+              padding: 14px 39px;
+              background: #d4d4d4;
+              border-radius: 20px;
+              display: flex;
+              align-items: center;
+              gap: 23px;
+              cursor: pointer;
+              text-decoration: none;
+              transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+              box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+            }
+            .blogcast-action-pill:hover {
+              transform: translateY(-4px);
+              background: #e9d7a3;
+              box-shadow: 0 12px 28px rgba(171, 135, 43, 0.28), 0 0 22px rgba(226, 194, 112, 0.45);
+            }
+            .blogcast-filter-button {
+              min-width: 280px;
+              height: 88px;
+              border-radius: 18px;
+              background: #111111;
+              border: 2px solid #f2d38b;
+              color: #ffffff;
+              display: flex;
+              align-items: center;
+              gap: 14px;
+              padding: 0 22px;
+              box-sizing: border-box;
+            }
+            .blogcast-filter-button select {
+              flex: 1;
+              border: none;
+              outline: none;
+              background: transparent;
+              color: #ffffff;
+              font-family: Helvetica, Arial, sans-serif;
+              font-size: 30px;
+              cursor: pointer;
+              appearance: none;
+            }
+            .blogcast-filter-button select option {
+              color: #111111;
+            }
+          `}</style>
 
           {/* Breadcrumb */}
           <div style={{ display: "flex", alignItems: "center", padding: "10px 0 0 10px" }}>
@@ -83,7 +146,11 @@ export default function BlogcastArchive() {
               <img src={A.homeIcon} alt="home" style={{ width: 29, height: 29 }} />
             </a>
             <div style={{ padding: 10 }}>
-              <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 24, fontWeight: 700, color: "#000" }}>home / Blogcast Home</span>
+              <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 24, fontWeight: 400, color: "#000" }}>
+                <a href="/" style={{ color: "inherit", textDecoration: "none", fontWeight: 400 }}>home</a>
+                {" / "}
+                <span style={{ fontWeight: 700 }}>Blogcast Home</span>
+              </span>
             </div>
           </div>
 
@@ -135,14 +202,23 @@ export default function BlogcastArchive() {
                   <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="" style={{ flex: 1, border: "none", outline: "none", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, background: "transparent" }} />
                   <img src={A.searchIcon} alt="search" style={{ width: 47, height: 47 }} />
                 </div>
-                <div style={{ height: 88, background: "#fff", borderRadius: 14, display: "flex", alignItems: "center", padding: 10, boxSizing: "border-box" as const }}>
-                  <select value={timePeriod} onChange={(e) => setTimePeriod(e.target.value)} style={{ border: "none", outline: "none", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, background: "transparent", cursor: "pointer", paddingLeft: 10, paddingRight: 10 }}>
-                    <option value="">Select a Time Period</option>
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
-                    <option value="2023">2023</option>
-                  </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                  <div className="blogcast-filter-button">
+                    <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 0.6 }}>Month</span>
+                    <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} aria-label="Select Month">
+                      {monthOptions.map((option) => (
+                        <option key={option.label} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="blogcast-filter-button">
+                    <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: 0.6 }}>Year</span>
+                    <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} aria-label="Select Year">
+                      {yearOptions.map((year) => (
+                        <option key={year || "empty-year"} value={year}>{year || "Select Year"}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -191,7 +267,7 @@ export default function BlogcastArchive() {
                         { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: `https://www.youtube.com/@SimplySharonTips/featured` },
                       ].map(({ icon, label, w, h, r, href }) => (
                         <a key={label} href={href} target={label === "Read" ? undefined : "_blank"} rel={label === "Read" ? undefined : "noreferrer"} style={{ textDecoration: "none" }}>
-                          <div style={{ paddingLeft: 39, paddingRight: 39, paddingTop: 14, paddingBottom: 14, background: "#D4D4D4", borderRadius: 20, display: "flex", alignItems: "center", gap: 23, cursor: "pointer", textDecoration: "none" }}>
+                          <div className="blogcast-action-pill">
                             <img src={icon} alt={label} style={{ width: w, height: h, borderRadius: r }} />
                             <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>{label}</span>
                           </div>
@@ -210,13 +286,13 @@ export default function BlogcastArchive() {
           </div>
 
           {/* Pagination */}
-          <div style={{ paddingTop: 50, paddingBottom: 82, display: "flex", justifyContent: "center", alignItems: "center", gap: 113 }}>
+          <div style={{ paddingTop: 96, paddingBottom: 82, display: "flex", justifyContent: "center", alignItems: "center", gap: 113 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ height: 86, paddingLeft: 32, paddingRight: 16, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", opacity: page === 1 ? 0.5 : 1 }}>
               <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, fontWeight: 700, color: "#000" }}>Previous Page</span>
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 35 }}>
               {pageNumbers.map((n) => (
-                <button key={n} onClick={() => setPage(n)} style={{ width: 87, paddingLeft: 21, paddingRight: 21, paddingTop: 20, paddingBottom: 20, background: page === n ? "#636363" : "#dadada", borderRadius: 45, border: "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <button key={n} onClick={() => setPage(n)} style={{ width: 88, height: 88, background: page === n ? "#111111" : "#dadada", borderRadius: "50%", border: page === n ? "3px solid #f2d38b" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === n ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === n ? "#fff" : "#000" }}>{n}</span>
                 </button>
               ))}
@@ -225,7 +301,7 @@ export default function BlogcastArchive() {
                   <div style={{ padding: 10 }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>. . .</span>
                   </div>
-                  <button onClick={() => setPage(totalPages)} style={{ paddingLeft: 21, paddingRight: 21, paddingTop: 20, paddingBottom: 20, background: page === totalPages ? "#636363" : "#dadada", borderRadius: 51, border: "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                  <button onClick={() => setPage(totalPages)} style={{ width: 88, height: 88, background: page === totalPages ? "#111111" : "#dadada", borderRadius: "50%", border: page === totalPages ? "3px solid #f2d38b" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === totalPages ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === totalPages ? "#fff" : "#000" }}>{totalPages}</span>
                   </button>
                 </>
@@ -238,7 +314,6 @@ export default function BlogcastArchive() {
 
         </div>
       </ScaledPage>
-      <SiteFooter />
-    </div>
+    </SiteLayout>
   );
 }

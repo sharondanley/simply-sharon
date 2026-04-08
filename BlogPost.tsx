@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CommentSection } from "./src/components/CommentSection";
-import { SiteNavbar } from "./src/components/SiteNavbar";
-import { SiteFooter } from "./src/components/SiteFooter";
+import { SiteLayout } from "./src/components/SiteLayout";
 import { ScaledPage } from "./src/components/ScaledPage";
 import { BlogBlock, BlogPostRecord, fetchBlogPostById, fetchBlogPostBySlug, formatArchiveDate, getPostLeadText, toEmbedUrl } from "./src/blogData";
 
@@ -113,18 +112,18 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
   const bodyBlocks = post?.blocks || [];
 
   return (
-    <div style={{ overflowX: "hidden", background: "#fff" }}>
-      <SiteNavbar />
+    <SiteLayout background="#fff" includeFooter={true}>
       <ScaledPage watchKey={`${post?.id || "missing"}-${loading}-${bodyBlocks.length}`}>
         <div style={{ width: "1920px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "43px" }}>
           <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "10px", paddingTop: "20px" }}>
             <a href="/" style={{ padding: "10px" }}><img src={ASSETS.breadcrumbIcon} alt="home" style={{ width: "29px", height: "29px", cursor: "pointer" }} /></a>
             <div style={{ padding: "10px" }}>
-              <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "24px", fontWeight: 700, color: "#000" }}>
-                <a href="/" style={{ cursor: "pointer", textDecoration: "none", color: "inherit" }}>home</a>
+              <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "24px", fontWeight: 400, color: "#000" }}>
+                <a href="/" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>home</a>
                 {" / "}
-                <a href="/blogcast" style={{ cursor: "pointer", textDecoration: "none", color: "inherit" }}>Blogcast Home</a>
-                {` / ${post?.title || "Blog Post"}`}
+                <a href="/blogcast" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>Blogcast Home</a>
+                {" / "}
+                <span style={{ fontWeight: 700 }}>{post?.title || "Blog Post"}</span>
               </span>
             </div>
           </div>
@@ -196,7 +195,6 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
           )}
         </div>
       </ScaledPage>
-      <SiteFooter />
-    </div>
+    </SiteLayout>
   );
 }

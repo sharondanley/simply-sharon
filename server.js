@@ -186,12 +186,13 @@ async function fetchPublicPostByField(field, value) {
     return hydratePostRecord(rows[0]);
 }
 
-async function fetchPublicArchivePosts({ page, limit, search, year }) {
+async function fetchPublicArchivePosts({ page, limit, search, year, month }) {
     const where = ['deleted_at IS NULL', 'published_at IS NOT NULL'];
     const params = [];
     const countParams = [];
     const trimmedSearch = search?.trim();
     const numericYear = Number(year);
+    const numericMonth = Number(month);
     const offset = (page - 1) * limit;
 
     if (trimmedSearch) {
@@ -205,6 +206,12 @@ async function fetchPublicArchivePosts({ page, limit, search, year }) {
         where.push('YEAR(COALESCE(published_at, created_at)) = ?');
         params.push(numericYear);
         countParams.push(numericYear);
+    }
+
+    if (Number.isInteger(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
+        where.push('MONTH(COALESCE(published_at, created_at)) = ?');
+        params.push(numericMonth);
+        countParams.push(numericMonth);
     }
 
     const whereClause = where.join(' AND ');
@@ -292,6 +299,71 @@ async function ensureCommentsTable() {
     );
 }
 
+const DEFAULT_ADMIN_PERSONALIZATION = {
+    displayName: 'Sharon Danley',
+    profilePhotoUrl: '',
+    inspirationQuote: 'Style is a way to say who you are without having to speak.',
+    inspirationImageUrl: '',
+};
+
+async function ensureSiteSettingsTable() {
+    await dbPromise.query(
+        `CREATE TABLE IF NOT EXISTS site_settings (
+            setting_key VARCHAR(100) PRIMARY KEY,
+            setting_value LONGTEXT NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
+    );
+}
+
+async function getSiteSettings(keys) {
+    if (!Array.isArray(keys) || keys.length === 0) return {};
+    const placeholders = keys.map(() => '?').join(', ');
+    const [rows] = await dbPromise.query(
+        `SELECT setting_key AS settingKey, setting_value AS settingValue
+         FROM site_settings
+         WHERE setting_key IN (${placeholders})`,
+        keys
+    );
+
+    return rows.reduce((acc, row) => {
+        acc[row.settingKey] = row.settingValue || '';
+        return acc;
+    }, {});
+}
+
+async function setSiteSetting(key, value) {
+    await dbPromise.query(
+        `INSERT INTO site_settings (setting_key, setting_value)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [key, value]
+    );
+}
+
+function sanitizeSettingText(value, maxLength = 2000) {
+    return String(value || '')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+        .trim()
+        .slice(0, maxLength);
+}
+
+async function getAdminPersonalization() {
+    const settings = await getSiteSettings([
+        'admin_display_name',
+        'admin_profile_photo_url',
+        'admin_inspiration_quote',
+        'admin_inspiration_image_url',
+    ]);
+
+    return {
+        displayName: settings.admin_display_name || DEFAULT_ADMIN_PERSONALIZATION.displayName,
+        profilePhotoUrl: settings.admin_profile_photo_url || DEFAULT_ADMIN_PERSONALIZATION.profilePhotoUrl,
+        inspirationQuote: settings.admin_inspiration_quote || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote,
+        inspirationImageUrl: settings.admin_inspiration_image_url || DEFAULT_ADMIN_PERSONALIZATION.inspirationImageUrl,
+    };
+}
+
 // ─── Public routes ─────────────────────────────────────────────────────────────
 
 const getPosts = (req, res) => {
@@ -312,9 +384,10 @@ app.get('/api/blogcast/posts', async (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 6), 50);
     const search = typeof req.query.search === 'string' ? req.query.search : '';
     const year = typeof req.query.year === 'string' ? req.query.year : '';
+    const month = typeof req.query.month === 'string' ? req.query.month : '';
 
     try {
-        const data = await fetchPublicArchivePosts({ page, limit, search, year });
+        const data = await fetchPublicArchivePosts({ page, limit, search, year, month });
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -527,6 +600,40 @@ app.get('/api/auth/me', (req, res) => {
     } catch {
         res.clearCookie('admin_token');
         res.status(401).json({ error: 'Invalid session' });
+    }
+});
+
+app.get('/api/admin/personalization', authMiddleware, async (req, res) => {
+    try {
+        const personalization = await getAdminPersonalization();
+        res.json(personalization);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/admin/personalization', authMiddleware, async (req, res) => {
+    const displayName = sanitizeSettingText(req.body?.displayName, 120) || DEFAULT_ADMIN_PERSONALIZATION.displayName;
+    const profilePhotoUrl = sanitizeSettingText(req.body?.profilePhotoUrl, 2048);
+    const inspirationQuote = sanitizeSettingText(req.body?.inspirationQuote, 1200) || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote;
+    const inspirationImageUrl = sanitizeSettingText(req.body?.inspirationImageUrl, 2048);
+
+    try {
+        await Promise.all([
+            setSiteSetting('admin_display_name', displayName),
+            setSiteSetting('admin_profile_photo_url', profilePhotoUrl),
+            setSiteSetting('admin_inspiration_quote', inspirationQuote),
+            setSiteSetting('admin_inspiration_image_url', inspirationImageUrl),
+        ]);
+
+        res.json({
+            displayName,
+            profilePhotoUrl,
+            inspirationQuote,
+            inspirationImageUrl,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -905,6 +1012,7 @@ async function startServer() {
         }
         console.log('[startup] uploadsDir:', uploadsDir);
         await ensureCommentsTable();
+        await ensureSiteSettingsTable();
     } catch (error) {
         console.error('Failed to ensure comments table:', error.message);
         process.exit(1);

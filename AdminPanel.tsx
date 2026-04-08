@@ -79,6 +79,20 @@ type DashboardStats = {
   commentsByPost?: Array<{ postId: number; postTitle: string; postSlug: string; commentsCount: number }>;
 };
 
+type AdminPersonalization = {
+  displayName: string;
+  profilePhotoUrl: string;
+  inspirationQuote: string;
+  inspirationImageUrl: string;
+};
+
+const DEFAULT_PERSONALIZATION: AdminPersonalization = {
+  displayName: "Sharon Danley",
+  profilePhotoUrl: "",
+  inspirationQuote: "Style is a way to say who you are without having to speak.",
+  inspirationImageUrl: "",
+};
+
 // ─── API stubs — replace each body with your actual backend call ──────────────
 
 const API = {
@@ -224,7 +238,46 @@ const API = {
     if (!r.ok) throw new Error(data.error || "Upload failed");
     return data;
   },
+
+  async getPersonalization(): Promise<AdminPersonalization> {
+    const r = await fetch("/api/admin/personalization", { credentials: "same-origin" });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to load personalization");
+    return { ...DEFAULT_PERSONALIZATION, ...(data as Partial<AdminPersonalization>) };
+  },
+
+  async updatePersonalization(payload: AdminPersonalization): Promise<AdminPersonalization> {
+    const r = await fetch("/api/admin/personalization", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to save personalization");
+    return { ...DEFAULT_PERSONALIZATION, ...(data as Partial<AdminPersonalization>) };
+  },
 };
+
+async function uploadImageFile(file: File): Promise<string> {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string | undefined;
+      const encoded = result?.split(",")[1];
+      if (!encoded) {
+        reject(new Error("Failed to read file"));
+        return;
+      }
+      resolve(encoded);
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+  const uploaded = await API.uploadThumbnail(base64, file.type, file.name);
+  return uploaded.url;
+}
 
 // ─── Dark-mode hook ───────────────────────────────────────────────────────────
 
@@ -238,6 +291,34 @@ function useAdminDarkMode() {
     return next;
   });
   return { dark, toggle };
+}
+
+function useAdminTextScale() {
+  const [scale, setScale] = useState<number>(() => {
+    try {
+      const stored = Number(localStorage.getItem("admin-text-scale") || "1");
+      return Number.isFinite(stored) && stored >= 0.95 && stored <= 1.2 ? stored : 1;
+    } catch {
+      return 1;
+    }
+  });
+
+  const adjust = (direction: "down" | "up") => {
+    setScale((current) => {
+      const next = direction === "up"
+        ? Math.min(1.2, Number((current + 0.05).toFixed(2)))
+        : Math.max(0.95, Number((current - 0.05).toFixed(2)));
+      try { localStorage.setItem("admin-text-scale", String(next)); } catch {}
+      return next;
+    });
+  };
+
+  const reset = () => {
+    try { localStorage.setItem("admin-text-scale", "1"); } catch {}
+    setScale(1);
+  };
+
+  return { scale, adjust, reset };
 }
 
 function stripHtml(value: string) {
@@ -1401,7 +1482,11 @@ export default function AdminPanel() {
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
+  const [personalization, setPersonalization] = useState<AdminPersonalization>(DEFAULT_PERSONALIZATION);
+  const [savingPersonalization, setSavingPersonalization] = useState(false);
+  const [uploadingPersonalizationImage, setUploadingPersonalizationImage] = useState<null | "profile" | "inspiration">(null);
   const { dark, toggle: toggleDark } = useAdminDarkMode();
+  const { scale: textScale, adjust: adjustTextScale, reset: resetTextScale } = useAdminTextScale();
 
   useEffect(() => {
     API.getCurrentUser()
@@ -1415,6 +1500,46 @@ export default function AdminPanel() {
       .then(setStats)
       .catch(() => {/* stats are non-critical; UI shows "—" on failure */});
   }, [postsRefreshKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    API.getPersonalization()
+      .then((data) => setPersonalization({ ...DEFAULT_PERSONALIZATION, ...data }))
+      .catch(() => {/* personalization falls back locally */});
+  }, [user]);
+
+  const savePersonalization = async () => {
+    setSavingPersonalization(true);
+    try {
+      const saved = await API.updatePersonalization(personalization);
+      setPersonalization(saved);
+      toast.success("Dashboard personalization updated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save personalization.");
+    } finally {
+      setSavingPersonalization(false);
+    }
+  };
+
+  const handlePersonalizationImageUpload = async (kind: "profile" | "inspiration", file?: File) => {
+    if (!file) return;
+    setUploadingPersonalizationImage(kind);
+    try {
+      const url = await uploadImageFile(file);
+      setPersonalization((current) => ({
+        ...current,
+        profilePhotoUrl: kind === "profile" ? url : current.profilePhotoUrl,
+        inspirationImageUrl: kind === "inspiration" ? url : current.inspirationImageUrl,
+      }));
+      toast.success(kind === "profile" ? "Profile photo uploaded." : "Inspiration image uploaded.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setUploadingPersonalizationImage(null);
+    }
+  };
+
+  const displayName = personalization.displayName?.trim() || user?.name || "Sharon Danley";
 
   const logout = async () => {
     try { await API.logout(); } finally { setUser(null); }
@@ -1477,11 +1602,15 @@ export default function AdminPanel() {
   const statIconBg = dark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600";
 
   return (
-    <div className={`min-h-screen ${bg} flex`}>
+    <div className={`admin-root min-h-screen ${bg} flex`} style={{ fontFamily: "Helvetica, Arial, sans-serif", zoom: textScale as unknown as number }}>
+      <style>{`
+        .admin-root, .admin-root * { font-family: Helvetica, Arial, sans-serif !important; }
+        .admin-root .admin-script { font-family: Italianno, cursive !important; }
+      `}</style>
       {/* Sidebar */}
       <aside className={`w-64 border-r flex flex-col shrink-0 ${sidebarBg}`}>
         <div className={`p-6 border-b ${dividerColor}`}>
-          <h1 className={`text-4xl font-normal font-['Italianno'] ${textPrimary}`}>Simply Sharon</h1>
+          <h1 className={`admin-script text-4xl font-normal ${textPrimary}`}>Simply Sharon</h1>
           <p className={`text-sm font-['Source_Sans_3'] mt-1 ${textMuted}`}>Admin Dashboard</p>
         </div>
 
@@ -1505,9 +1634,39 @@ export default function AdminPanel() {
         </nav>
 
         <div className={`p-4 border-t ${dividerColor}`}>
+          <div className={`mb-3 rounded-xl border p-3 ${dark ? "border-gray-600 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}>
+            <div className={`text-sm font-semibold mb-3 ${textPrimary}`}>Text Size</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => adjustTextScale("down")}
+                className={`flex-1 px-3 py-2.5 rounded-lg border text-lg font-bold transition-colors ${dark ? "border-gray-500 text-gray-100 hover:bg-gray-600" : "border-gray-300 text-gray-900 hover:bg-gray-100"}`}
+                title="Decrease dashboard text size"
+              >
+                A-
+              </button>
+              <button
+                type="button"
+                onClick={() => adjustTextScale("up")}
+                className={`flex-1 px-3 py-2.5 rounded-lg border text-lg font-bold transition-colors ${dark ? "border-gray-500 text-gray-100 hover:bg-gray-600" : "border-gray-300 text-gray-900 hover:bg-gray-100"}`}
+                title="Increase dashboard text size"
+              >
+                A+
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={resetTextScale}
+              className={`mt-2 w-full text-xs transition-colors ${textMuted}`}
+              title="Reset dashboard text size"
+            >
+              Reset to default
+            </button>
+          </div>
+
           <button
             onClick={toggleDark}
-            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base font-['Source_Sans_3'] transition-colors mb-3 ${navInactive}`}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base transition-colors mb-3 ${navInactive}`}
             title={dark ? "Switch to light mode" : "Switch to dark mode"}
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
@@ -1517,13 +1676,13 @@ export default function AdminPanel() {
           {/* User info */}
           <div className={`flex items-center gap-3 mb-3 p-3 rounded-lg ${dark ? "bg-gray-700" : "bg-gray-50"}`}>
             <img
-              src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || "Admin")}`}
-              alt={user.name || "Admin"}
-              className="w-10 h-10 rounded-full shrink-0"
+              src={personalization.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName || "Sharon Danley")}`}
+              alt={displayName}
+              className="w-12 h-12 rounded-full shrink-0 object-cover"
             />
             <div className="min-w-0">
-              <p className={`text-sm font-bold font-['Source_Sans_3'] truncate ${textPrimary}`}>{user.name || "Admin"}</p>
-              <p className={`text-xs font-['Source_Sans_3'] truncate ${textMuted}`}>{user.email}</p>
+              <p className={`text-sm font-bold truncate ${textPrimary}`}>{displayName}</p>
+              <p className={`text-xs truncate ${textMuted}`}>{user.email}</p>
             </div>
           </div>
 
@@ -1552,8 +1711,93 @@ export default function AdminPanel() {
       <main className={`flex-1 overflow-auto p-8 ${mainBg}`}>
         {view === "dashboard" && (
           <div>
-            <h2 className={`text-3xl font-bold font-['Source_Sans_3'] mb-2 ${textPrimary}`}>Welcome back, {user.name?.split(" ")[0] || "Admin"}</h2>
-            <p className={`text-base font-['Source_Sans_3'] mb-8 ${textMuted}`}>Here's an overview of your content.</p>
+            <h2 className={`text-3xl font-bold mb-2 ${textPrimary}`}>Welcome back, {displayName.split(" ")[0] || "Sharon"}</h2>
+            <p className={`text-base mb-8 ${textMuted}`}>Here's an overview of your content.</p>
+            <div className={`rounded-2xl border p-6 mb-8 ${cardBg}`}>
+              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${statIconBg}`}>
+                      <Sun size={22} />
+                    </div>
+                    <div>
+                      <h3 className={`text-2xl font-bold ${textPrimary}`}>Inspiration</h3>
+                      <p className={`text-sm ${textMuted}`}>Personalize Sharon Danley&apos;s dashboard profile and weekly motivation content.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <label className="block">
+                        <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Profile Name</span>
+                        <input
+                          value={personalization.displayName}
+                          onChange={(e) => setPersonalization((current) => ({ ...current, displayName: e.target.value }))}
+                          className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                          placeholder="Sharon Danley"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Quote of the Week</span>
+                        <textarea
+                          value={personalization.inspirationQuote}
+                          onChange={(e) => setPersonalization((current) => ({ ...current, inspirationQuote: e.target.value }))}
+                          className={`w-full min-h-[132px] px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                          placeholder="Enter the weekly quote"
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
+                          <Upload size={16} />
+                          {uploadingPersonalizationImage === "profile" ? "Uploading profile photo…" : "Upload Profile Photo"}
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("profile", e.target.files?.[0])} />
+                        </label>
+                        <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
+                          <Image size={16} />
+                          {uploadingPersonalizationImage === "inspiration" ? "Uploading inspiration image…" : "Upload Inspiration Image"}
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("inspiration", e.target.files?.[0])} />
+                        </label>
+                        <button
+                          onClick={savePersonalization}
+                          disabled={savingPersonalization}
+                          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-colors ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"} disabled:opacity-60`}
+                        >
+                          <Save size={16} /> {savingPersonalization ? "Saving…" : "Save Inspiration"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className={`rounded-2xl border overflow-hidden ${dark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"}`}>
+                      <div className="p-5 flex items-center gap-4 border-b border-inherit">
+                        <img
+                          src={personalization.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`}
+                          alt={displayName}
+                          className="w-16 h-16 rounded-full object-cover shrink-0"
+                        />
+                        <div>
+                          <p className={`text-lg font-bold ${textPrimary}`}>{displayName}</p>
+                          <p className={`text-sm ${textMuted}`}>Dashboard profile preview</p>
+                        </div>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <blockquote className={`text-lg leading-8 italic ${textPrimary}`}>
+                          “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
+                        </blockquote>
+                        {personalization.inspirationImageUrl ? (
+                          <img
+                            src={personalization.inspirationImageUrl}
+                            alt="Inspirational upload"
+                            className="w-full h-64 object-cover rounded-xl"
+                          />
+                        ) : (
+                          <div className={`w-full h-64 rounded-xl border border-dashed flex items-center justify-center text-center px-6 ${dark ? "border-gray-600 text-gray-400" : "border-gray-300 text-gray-500"}`}>
+                            Upload a family photo or inspirational image to feature at the top of the dashboard.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
               {[
                 { label: "Total Posts", value: stats ? String(stats.total) : "—", icon: <FileText size={22} /> },

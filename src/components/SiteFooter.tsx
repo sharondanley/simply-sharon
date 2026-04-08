@@ -92,6 +92,21 @@ export function SiteFooter() {
               The information shared on this site is intended for beauty, lifestyle, and personal development inspiration. It does not replace professional medical, legal, or financial advice.
             </p>
             <p style={{ ...sourceSans24, margin: 0 }}>© 2025 Sharon Danley</p>
+            <a
+              href="/admin"
+              style={{
+                fontFamily: "Helvetica, Arial, sans-serif",
+                fontSize: "18px",
+                lineHeight: "22px",
+                color: "rgba(255,255,255,0.46)",
+                textDecoration: "none",
+                transition: "opacity 0.2s ease",
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.78")}
+            >
+              Admin
+            </a>
           </div>
         </div>
       </div>
@@ -106,6 +121,18 @@ export function SiteFooter() {
           </div>
           <a href="mailto:info@SimplySharon.ca" style={{ color: "#FFFFFF", textDecoration: "underline", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "22px" }}>info@SimplySharon.ca</a>
           <p style={{ ...sourceSans24, margin: 0 }}>© 2025 Sharon Danley</p>
+          <a
+            href="/admin"
+            style={{
+              fontFamily: "Helvetica, Arial, sans-serif",
+              fontSize: "16px",
+              lineHeight: "20px",
+              color: "rgba(255,255,255,0.52)",
+              textDecoration: "none",
+            }}
+          >
+            Admin
+          </a>
         </div>
       </div>
     </>

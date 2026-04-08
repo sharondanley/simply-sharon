@@ -7,8 +7,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Mail, Youtube, Facebook } from "lucide-react";
-import { SiteNavbar } from "./src/components/SiteNavbar";
-import { SiteFooter } from "./src/components/SiteFooter";
+import { SiteLayout } from "./src/components/SiteLayout";
 
 // ─── Nav Items ───────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -195,7 +194,8 @@ const heroRayOverlay = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Home() {
   return (
-    <div className="w-full bg-white flex flex-col items-center overflow-hidden">
+    <SiteLayout background="#fff" includeFooter={true}>
+      <div className="w-full bg-white flex flex-col items-center overflow-hidden">
 
       {/* ── Navbar + Hero Section (dark bg) ── */}
       {/* hero-section: flex col, center items, padding 49px top / 109px bottom, gap 60px */}
@@ -208,16 +208,13 @@ export default function Home() {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          paddingTop: "49px",
+          paddingTop: "0px",
           paddingBottom: "109px",
           gap: "60px",
         }}
       >
         {/* Diagonal light ray overlay matching Figma's Darker-right-1.jpg */}
         <div style={heroRayOverlay} />
-
-        {/* Navbar */}
-        <SiteNavbar />
 
         {/* ── Desktop Hero Content (exact Figma CSS) ── */}
         {/* hero-content: flex row, gap 64px, 1488px wide, 791px tall */}
@@ -2271,11 +2268,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Footer Section ── */}
-      <SiteFooter />
-
-
-    </div>
+      </div>
+    </SiteLayout>
   );
 }
 
