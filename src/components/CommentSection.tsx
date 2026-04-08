@@ -10,15 +10,15 @@ type AuthUser = {
 };
 
 interface ApiComment {
-  id: number;
-  postId: number;
-  parentId: number | null;
+  id: number | string;
+  postId: number | string;
+  parentId: number | string | null;
   authorName: string;
   content: string;
   createdAt: string;
-  likesCount: number;
-  heartsCount: number;
-  isVerifiedAuthor: number;
+  likesCount: number | string;
+  heartsCount: number | string;
+  isVerifiedAuthor: number | string;
 }
 
 interface Comment {
@@ -71,18 +71,27 @@ function initialsFromName(name: string) {
 function normalizeComments(rows: ApiComment[]): Comment[] {
   const byId = new Map<number, Comment>();
   rows.forEach((row) => {
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) return;
+
+    const parentId = row.parentId == null ? null : Number(row.parentId);
+    const safeParentId = Number.isFinite(parentId as number) ? (parentId as number) : null;
+    const likes = Number(row.likesCount);
+    const hearts = Number(row.heartsCount);
+    const isVerifiedAuthor = Number(row.isVerifiedAuthor);
+
     const ts = new Date(row.createdAt).getTime();
-    byId.set(row.id, {
-      id: row.id,
-      parentId: row.parentId,
+    byId.set(id, {
+      id,
+      parentId: safeParentId,
       authorName: row.authorName,
       initials: initialsFromName(row.authorName),
       content: row.content,
       timestamp: toRelativeTime(row.createdAt),
       timestampMs: ts,
-      likes: row.likesCount || 0,
-      hearts: row.heartsCount || 0,
-      isVerifiedAuthor: Boolean(row.isVerifiedAuthor),
+      likes: Number.isFinite(likes) ? likes : 0,
+      hearts: Number.isFinite(hearts) ? hearts : 0,
+      isVerifiedAuthor: Number.isFinite(isVerifiedAuthor) && isVerifiedAuthor > 0,
       userReaction: null,
       replies: [],
     });
@@ -90,7 +99,7 @@ function normalizeComments(rows: ApiComment[]): Comment[] {
 
   const roots: Comment[] = [];
   byId.forEach((comment) => {
-    if (comment.parentId && byId.has(comment.parentId)) {
+    if (comment.parentId != null && byId.has(comment.parentId)) {
       byId.get(comment.parentId)!.replies.push(comment);
     } else {
       roots.push(comment);

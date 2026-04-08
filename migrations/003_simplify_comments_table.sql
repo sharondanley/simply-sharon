@@ -1,6 +1,5 @@
 -- Migration 003: Comment replies, reactions, and verified author
 -- Safe to re-run on MySQL 8.0+.
-
 CREATE TABLE IF NOT EXISTS comments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
@@ -15,7 +14,6 @@ CREATE TABLE IF NOT EXISTS comments (
     INDEX idx_comments_parent_id (parent_id),
     CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
 ALTER TABLE
     comments
 ADD
@@ -42,7 +40,6 @@ ADD
     COLUMN IF NOT EXISTS is_verified_author TINYINT(1) NOT NULL DEFAULT 0
 AFTER
     hearts_count;
-
 UPDATE
     comments
 SET
