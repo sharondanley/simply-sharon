@@ -11,8 +11,17 @@ const publicDirPath = path.join(projectRoot, 'public');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 (async () => {
-    // 1. Compile React admin and blog frontends
+    // 1. Compile React home, admin, and blog frontends
     console.log('Compiling frontend...');
+    await esbuild.build({
+        entryPoints: [path.join(projectRoot, 'src', 'home.tsx')],
+        bundle: true,
+        minify: true,
+        platform: 'browser',
+        target: ['es2020'],
+        outfile: path.join(publicDirPath, 'home.bundle.js'),
+        jsx: 'automatic',
+    });
     await esbuild.build({
         entryPoints: [path.join(projectRoot, 'src', 'admin.tsx')],
         bundle: true,
@@ -60,6 +69,7 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
             express: packageJson.dependencies.express,
             jsonwebtoken: packageJson.dependencies.jsonwebtoken,
             mysql2: packageJson.dependencies.mysql2,
+            sharp: packageJson.dependencies.sharp,
         },
     };
 

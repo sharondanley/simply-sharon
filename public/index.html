@@ -3,31 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Posts Tester</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <title>Simply Sharon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Source+Sans+3:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <main class="page">
-    <section class="panel">
-      <h1>Posts Query Tester</h1>
-      <p>Use this page to confirm your API and database are connected.</p>
-
-      <div class="controls">
-        <label for="limitInput">Limit</label>
-        <input id="limitInput" type="number" min="1" max="100" value="10" />
-        <button id="loadPostsBtn" type="button">Load Posts</button>
-        <button id="healthBtn" type="button" class="secondary">Check Health</button>
-      </div>
-
-      <div id="status" class="status">Ready.</div>
-    </section>
-
-    <section>
-      <h2>Results</h2>
-      <div id="posts" class="posts"></div>
-    </section>
-  </main>
-
-  <script src="/app.js"></script>
+  <div id="root"></div>
+  <script src="/home.bundle.js"></script>
 </body>
 </html>

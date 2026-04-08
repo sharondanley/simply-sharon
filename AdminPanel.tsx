@@ -64,6 +64,8 @@ type CommentItem = {
   authorName: string;
   content: string;
   createdAt: string;
+  likesCount?: number;
+  heartsCount?: number;
   isVerifiedAuthor?: number;
   postTitle: string;
   postSlug: string;
@@ -1234,9 +1236,9 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
       </div>
 
       <div className={`rounded-xl border overflow-hidden ${tableShell}`}>
-        <div className={`grid grid-cols-[180px_1fr_180px_1fr_200px] gap-4 px-5 py-3 text-sm font-bold font-['Source_Sans_3'] ${tableHead}`}>
+        <div className={`grid grid-cols-[220px_1.3fr_180px_1fr_200px] gap-4 px-5 py-3 text-sm font-bold font-['Source_Sans_3'] ${tableHead}`}>
           <div>Author</div>
-          <div>Content</div>
+          <div>Comment Thread</div>
           <div>Date</div>
           <div>Post Title</div>
           <div>Actions</div>
@@ -1254,9 +1256,26 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
           </div>
         ) : (
           filtered.map((item) => (
-            <div key={item.id} className={`grid grid-cols-[180px_1fr_180px_1fr_200px] gap-4 px-5 py-4 border-t ${rowDivider}`}>
-              <div className={`font-semibold font-['Source_Sans_3'] ${textMain}`}>{item.authorName}</div>
-              <div className={`font-['Source_Sans_3'] ${textMain}`}>{stripHtml(item.content).slice(0, 160) || "(empty)"}</div>
+            <div key={item.id} className={`grid grid-cols-[220px_1.3fr_180px_1fr_200px] gap-4 px-5 py-4 border-t ${rowDivider}`}>
+              <div className="min-w-0">
+                <div className={`font-semibold font-['Source_Sans_3'] ${textMain}`}>{item.authorName}</div>
+                <div className={`mt-1 text-sm font-['Source_Sans_3'] ${textMuted}`}>
+                  {Number(item.isVerifiedAuthor || 0) > 0 ? "Verified author" : "Community member"}
+                </div>
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold font-['Source_Sans_3'] ${item.parentId ? (dark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700') : (dark ? 'bg-white/10 text-white' : 'bg-black text-white')}`}>
+                    {item.parentId ? `Reply to #${item.parentId}` : `Top-level comment #${item.id}`}
+                  </span>
+                  <span className={`text-xs font-['Source_Sans_3'] ${textMuted}`}>
+                    Likes {Number(item.likesCount || 0)} · Hearts {Number(item.heartsCount || 0)}
+                  </span>
+                </div>
+                <div className={`font-['Source_Sans_3'] ${textMain}`} style={{ paddingLeft: item.parentId ? '18px' : '0', borderLeft: item.parentId ? `3px solid ${dark ? '#4b5563' : '#d1d5db'}` : 'none' }}>
+                  {stripHtml(item.content).slice(0, 220) || "(empty)"}
+                </div>
+              </div>
               <div className={`font-['Source_Sans_3'] ${textMuted}`}>{formatDateTime(item.createdAt)}</div>
               <div className={`font-['Source_Sans_3'] ${textMain}`}>{item.postTitle}</div>
               <div className="flex items-center gap-2">

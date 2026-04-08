@@ -22,7 +22,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(express.static(publicDir));
 app.use('/uploads', express.static(uploadsDir));
-const port = Number(process.env.PORT || 8081);
+const port = Number(process.env.PORT || 8082);
 
 const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "JWT_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
@@ -803,12 +803,13 @@ app.get('/api/admin/comments', authMiddleware, async (req, res) => {
         const [rows] = await dbPromise.query(
             `SELECT c.id, c.post_id AS postId, c.parent_id AS parentId,
                     c.author_name AS authorName, c.content, c.created_at AS createdAt,
+                    c.likes_count AS likesCount, c.hearts_count AS heartsCount,
                     c.is_verified_author AS isVerifiedAuthor,
                     p.title AS postTitle, p.slug AS postSlug
              FROM comments c
              INNER JOIN posts p ON p.id = c.post_id
              WHERE p.deleted_at IS NULL
-             ORDER BY c.created_at DESC`
+             ORDER BY p.id DESC, COALESCE(c.parent_id, c.id) ASC, c.parent_id IS NOT NULL ASC, c.created_at ASC`
         );
         res.json({ items: rows });
     } catch (err) {
