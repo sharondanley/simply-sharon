@@ -1,34 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-type CommentReaction = "like" | "dislike" | null;
-
-interface Comment {
-  id: number;
-  parentId: number | null;
-  author: string;
-  initials: string;
-  avatarUrl?: string;
-  content: string;
-  timestamp: string;
-  timestampMs: number;
-  likes: number;
-  dislikes: number;
-  userReaction: CommentReaction;
-  replies: Comment[];
-}
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface ApiComment {
   id: number;
   postId: number;
-  parentId: number | null;
   authorName: string;
-  authorEmail?: string | null;
-  avatarUrl?: string | null;
   content: string;
-  likes: number;
-  dislikes: number;
   createdAt: string;
 }
+
+interface Comment {
+  id: number;
+  authorName: string;
+  initials: string;
+  content: string;
+  timestamp: string;
+  timestampMs: number;
+}
+
+const AUTHOR_NAME_STORAGE_KEY = "blog-comment-author-name";
 
 const T = {
   fontFamily: "Helvetica, Arial, sans-serif",
@@ -39,15 +28,17 @@ const T = {
   toolbar: { fontSize: "30px", lineHeight: "1" },
   sendBtn: { fontSize: "28px", lineHeight: "36px", fontWeight: 600 },
   sortBtn: { fontSize: "26px", lineHeight: "32px", fontWeight: 500 },
-  menu: { fontSize: "28px", lineHeight: "36px" },
+  inputLabel: { fontSize: "24px", lineHeight: "30px", fontWeight: 600 },
+  inputText: { fontSize: "28px", lineHeight: "34px" },
 };
 
 function toRelativeTime(input: string | number | Date) {
-  const ts = new Date(input).getTime();
-  const diff = Math.max(1, Date.now() - ts);
+  const timestamp = new Date(input).getTime();
+  const diff = Math.max(1, Date.now() - timestamp);
   const minute = 60 * 1000;
   const hour = 60 * minute;
   const day = 24 * hour;
+
   if (diff < minute) return "Just now";
   if (diff < hour) return `${Math.floor(diff / minute)} min ago`;
   if (diff < day) return `${Math.floor(diff / hour)} hours ago`;
@@ -56,337 +47,310 @@ function toRelativeTime(input: string | number | Date) {
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() || "").join("") || "GU";
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "GU";
 }
 
 function normalizeComments(rows: ApiComment[]): Comment[] {
-  const byId = new Map<number, Comment>();
-  rows.forEach((row) => {
-    const ts = new Date(row.createdAt).getTime();
-    byId.set(row.id, {
-      id: row.id,
-      parentId: row.parentId,
-      author: row.authorName,
-      initials: initialsFromName(row.authorName),
-      avatarUrl: row.avatarUrl || undefined,
-      content: row.content,
-      timestamp: toRelativeTime(row.createdAt),
-      timestampMs: ts,
-      likes: row.likes || 0,
-      dislikes: row.dislikes || 0,
-      userReaction: null,
-      replies: [],
-    });
-  });
+  return rows
+    .map((row) => {
+      const timestampMs = new Date(row.createdAt).getTime();
+      return {
+        id: row.id,
+        authorName: row.authorName,
+        initials: initialsFromName(row.authorName),
+        content: row.content,
+        timestamp: toRelativeTime(row.createdAt),
+        timestampMs,
+      };
+    })
+    .sort((left, right) => left.timestampMs - right.timestampMs);
+}
 
-  const roots: Comment[] = [];
-  byId.forEach((comment) => {
-    if (comment.parentId && byId.has(comment.parentId)) {
-      byId.get(comment.parentId)!.replies.push(comment);
-    } else {
-      roots.push(comment);
-    }
-  });
+function stripHtml(value: string) {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 
-  const sortRec = (list: Comment[]) => {
-    list.sort((a, b) => a.timestampMs - b.timestampMs);
-    list.forEach((c) => sortRec(c.replies));
+function Avatar({ authorName, initials, size = 56 }: { authorName: string; initials: string; size?: number }) {
+  const avatarColors: Record<string, string> = {
+    AF: "#8b5cf6",
+    EH: "#ec4899",
+    FM: "#6b7280",
+    GU: "#4b5563",
+    SD: "#374151",
+    YO: "#0ea5e9",
   };
-  sortRec(roots);
-  return roots;
-}
 
-function ThumbUpIcon({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
-      <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-    </svg>
-  );
-}
-
-function ThumbDownIcon({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
-      <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
-    </svg>
-  );
-}
-
-function ReactionPill({ likes, dislikes, userReaction, onReact }: { likes: number; dislikes: number; userReaction: CommentReaction; onReact: (r: "like" | "dislike") => void; }) {
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 0, border: "1px solid #d1d5db", borderRadius: 100, padding: "6px 16px", height: 52, userSelect: "none" }}>
-      <button
-        onClick={() => onReact("like")}
-        title="Like"
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", color: userReaction === "like" ? "#1d4ed8" : "#6b7280", transition: "color 0.15s, transform 0.1s", lineHeight: 1 }}
-      >
-        <ThumbUpIcon size={28} />
-      </button>
-      <span style={{ ...T.meta, fontFamily: T.fontFamily, color: userReaction === "like" ? "#1d4ed8" : "#374151", fontWeight: userReaction === "like" ? 700 : 400, marginLeft: 8, minWidth: 20 }}>
-        {likes}
-      </span>
-      <span style={{ width: 1, height: 22, background: "#d1d5db", margin: "0 12px", display: "inline-block" }} />
-      <button
-        onClick={() => onReact("dislike")}
-        title="Dislike"
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", color: userReaction === "dislike" ? "#dc2626" : "#6b7280", transition: "color 0.15s, transform 0.1s", lineHeight: 1 }}
-      >
-        <ThumbDownIcon size={28} />
-      </button>
-      <span style={{ ...T.meta, fontFamily: T.fontFamily, color: userReaction === "dislike" ? "#dc2626" : "#374151", fontWeight: userReaction === "dislike" ? 700 : 400, marginLeft: 8, minWidth: 20 }}>
-        {dislikes}
-      </span>
+    <div
+      aria-label={authorName}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: avatarColors[initials] ?? "#6b7280",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.36,
+        fontWeight: 700,
+        fontFamily: T.fontFamily,
+        flexShrink: 0,
+      }}
+    >
+      {initials}
     </div>
   );
 }
 
-function RichTextEditor({ placeholder, onSend, autoFocus = false, compact = false }: { placeholder: string; onSend: (html: string) => void; autoFocus?: boolean; compact?: boolean; }) {
+function RichTextEditor({
+  disabled,
+  onSend,
+  placeholder,
+}: {
+  disabled?: boolean;
+  onSend: (html: string) => Promise<void> | void;
+  placeholder: string;
+}) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  const execCmd = useCallback((cmd: string) => {
-    document.execCommand(cmd, false, undefined);
+  const execCommand = (command: string) => {
+    document.execCommand(command, false, undefined);
     editorRef.current?.focus();
-  }, []);
+  };
 
   const handleInput = () => {
     const text = editorRef.current?.innerText ?? "";
     setIsEmpty(text.trim().length === 0);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    if (disabled) return;
+
     const html = editorRef.current?.innerHTML ?? "";
     const text = editorRef.current?.innerText ?? "";
     if (!text.trim()) return;
-    onSend(html);
-    if (editorRef.current) editorRef.current.innerHTML = "";
+
+    await onSend(html);
+
+    if (editorRef.current) {
+      editorRef.current.innerHTML = "";
+    }
     setIsEmpty(true);
+  };
+
+  const handleKeyDown = async (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      await handleSend();
+    }
   };
 
   return (
     <div style={{ border: "1px solid #d1d5db", borderRadius: 10, background: "#fff", overflow: "hidden" }}>
       <div
         ref={editorRef}
-        contentEditable
+        contentEditable={!disabled}
         suppressContentEditableWarning
-        autoFocus={autoFocus}
         onInput={handleInput}
+        onKeyDown={handleKeyDown}
         data-placeholder={placeholder}
-        style={{ minHeight: compact ? 80 : 120, padding: "18px 20px", outline: "none", ...T.body, fontFamily: T.fontFamily, color: "#111827" }}
         className="comment-editor"
+        style={{
+          minHeight: 120,
+          padding: "18px 20px",
+          outline: "none",
+          opacity: disabled ? 0.7 : 1,
+          ...T.body,
+          fontFamily: T.fontFamily,
+          color: "#111827",
+        }}
       />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {[
-            { cmd: "bold", label: "B", extra: { fontWeight: 700 } },
-            { cmd: "italic", label: "I", extra: { fontStyle: "italic" as const } },
-            { cmd: "underline", label: "U", extra: { textDecoration: "underline" } },
-            { cmd: "insertUnorderedList", label: "≡", extra: {} },
-          ].map(({ cmd, label, extra }) => (
+            { command: "bold", label: "B", extra: { fontWeight: 700 } },
+            { command: "italic", label: "I", extra: { fontStyle: "italic" as const } },
+            { command: "underline", label: "U", extra: { textDecoration: "underline" } },
+            { command: "insertUnorderedList", label: "≡", extra: {} },
+          ].map(({ command, label, extra }) => (
             <button
-              key={cmd}
-              onMouseDown={(e) => { e.preventDefault(); execCmd(cmd); }}
-              title={cmd}
-              style={{ width: 44, height: 44, border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", ...T.toolbar, fontFamily: T.fontFamily, color: "#374151", display: "flex", alignItems: "center", justifyContent: "center", ...extra }}
+              key={command}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                execCommand(command);
+              }}
+              disabled={disabled}
+              style={{
+                width: 44,
+                height: 44,
+                border: "none",
+                background: "transparent",
+                borderRadius: 6,
+                cursor: disabled ? "not-allowed" : "pointer",
+                ...T.toolbar,
+                fontFamily: T.fontFamily,
+                color: "#374151",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                ...extra,
+              }}
             >
               {label}
             </button>
           ))}
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            title="Mention"
-            style={{ width: 44, height: 44, border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", ...T.toolbar, fontFamily: T.fontFamily, color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 12 }}
-          >
-            @
-          </button>
         </div>
         <button
-          onClick={handleSend}
-          disabled={isEmpty}
-          style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: isEmpty ? "#9ca3af" : "#374151", color: "#fff", ...T.sendBtn, fontFamily: T.fontFamily, cursor: isEmpty ? "not-allowed" : "pointer", transition: "background 0.15s" }}
+          type="button"
+          onClick={() => {
+            void handleSend();
+          }}
+          disabled={disabled || isEmpty}
+          style={{
+            padding: "10px 28px",
+            borderRadius: 8,
+            border: "none",
+            background: disabled || isEmpty ? "#9ca3af" : "#374151",
+            color: "#fff",
+            ...T.sendBtn,
+            fontFamily: T.fontFamily,
+            cursor: disabled || isEmpty ? "not-allowed" : "pointer",
+          }}
         >
-          Send
+          {disabled ? "Sending..." : "Send"}
         </button>
       </div>
     </div>
   );
 }
 
-const AVATAR_COLORS: Record<string, string> = { FM: "#6b7280", AF: "#8b5cf6", EH: "#ec4899", SD: "#374151", YO: "#0ea5e9", GU: "#4b5563" };
-
-function Avatar({ author, initials, avatarUrl, size = 56 }: { author: string; initials: string; avatarUrl?: string; size?: number; }) {
-  const bg = AVATAR_COLORS[initials] ?? "#6b7280";
+function CommentItem({ comment }: { comment: Comment }) {
   return (
-    <div style={{ position: "relative", flexShrink: 0 }}>
-      {avatarUrl ? (
-        <img src={avatarUrl} alt={author} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />
-      ) : (
-        <div style={{ width: size, height: size, borderRadius: "50%", background: bg, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.36, fontWeight: 700, fontFamily: T.fontFamily }}>
-          {initials}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ThreeDotMenu() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ position: "relative" }}>
-      <button onClick={() => setOpen((v) => !v)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: "4px 10px", borderRadius: 6, fontSize: 26, lineHeight: 1, letterSpacing: "0.05em" }}>
-        ···
-      </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "100%", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,0.12)", zIndex: 20, minWidth: 180, overflow: "hidden" }}>
-          {["Report", "Copy link", "Hide"].map((item) => (
-            <button key={item} onClick={() => setOpen(false)} style={{ display: "block", width: "100%", padding: "12px 20px", background: "none", border: "none", textAlign: "left", ...T.menu, fontFamily: T.fontFamily, cursor: "pointer", color: "#374151" }}>
-              {item}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommentItem({ comment, depth = 0, onReply, onReact }: { comment: Comment; depth?: number; onReply: (parentId: number, html: string) => void; onReact: (id: number, reaction: "like" | "dislike") => void; }) {
-  const [showReplyEditor, setShowReplyEditor] = useState(false);
-  const handleReplySend = (html: string) => {
-    onReply(comment.id, html);
-    setShowReplyEditor(false);
-  };
-  const avatarSize = depth > 0 ? 48 : 56;
-
-  return (
-    <div style={{ marginLeft: depth > 0 ? avatarSize + 16 : 0 }}>
+    <div>
       <div style={{ display: "flex", gap: 16, paddingTop: 24, paddingBottom: 16 }}>
-        <Avatar author={comment.author} initials={comment.initials} avatarUrl={comment.avatarUrl} size={avatarSize} />
+        <Avatar authorName={comment.authorName} initials={comment.initials} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ ...T.author, fontFamily: T.fontFamily, color: "#111827" }}>{comment.author}</span>
-            </div>
-            <ThreeDotMenu />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 8 }}>
+            <span style={{ ...T.author, fontFamily: T.fontFamily, color: "#111827" }}>{comment.authorName}</span>
+            <span style={{ ...T.meta, fontFamily: T.fontFamily, color: "#9ca3af", textAlign: "right" }}>{comment.timestamp}</span>
           </div>
-
-          <div style={{ ...T.body, fontFamily: T.fontFamily, color: "#111827", marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: comment.content }} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <ReactionPill likes={comment.likes} dislikes={comment.dislikes} userReaction={comment.userReaction} onReact={(r) => onReact(comment.id, r)} />
-            <button onClick={() => setShowReplyEditor((v) => !v)} style={{ background: "none", border: "none", cursor: "pointer", ...T.meta, fontFamily: T.fontFamily, color: "#6b7280", padding: 0, fontWeight: 500 }}>
-              Reply
-            </button>
-            <span style={{ ...T.meta, fontFamily: T.fontFamily, color: "#9ca3af", borderLeft: "1px solid #e5e7eb", paddingLeft: 20 }}>{comment.timestamp}</span>
-          </div>
-
-          {showReplyEditor && (
-            <div style={{ marginTop: 16 }}>
-              <RichTextEditor placeholder={`Reply to ${comment.author}...`} onSend={handleReplySend} autoFocus compact />
-            </div>
-          )}
+          <div style={{ ...T.body, fontFamily: T.fontFamily, color: "#111827" }} dangerouslySetInnerHTML={{ __html: comment.content }} />
         </div>
       </div>
-
       <div style={{ height: 1, background: "#f3f4f6" }} />
-      {comment.replies.map((reply) => (
-        <CommentItem key={reply.id} comment={reply} depth={depth + 1} onReply={onReply} onReact={onReact} />
-      ))}
     </div>
   );
 }
 
 export function CommentSection({ postId }: { postId?: number }) {
+  const [authorName, setAuthorName] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
-  const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
-  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<"latest" | "oldest">("latest");
+  const [submitting, setSubmitting] = useState(false);
 
-  const loadComments = useCallback(async () => {
-    if (!postId) return;
-    setLoading(true);
-    try {
-      const r = await fetch(`/api/blogcast/comments?postId=${postId}`);
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Failed to load comments");
-      setComments(normalizeComments(data.items || []));
-    } catch {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedAuthorName = window.localStorage.getItem(AUTHOR_NAME_STORAGE_KEY);
+    if (storedAuthorName) {
+      setAuthorName(storedAuthorName);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!authorName.trim()) return;
+    window.localStorage.setItem(AUTHOR_NAME_STORAGE_KEY, authorName.trim());
+  }, [authorName]);
+
+  const loadComments = async () => {
+    if (!postId) {
       setComments([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/blogcast/comments?postId=${postId}`, { credentials: "same-origin" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as { error?: string }).error || "Failed to load comments");
+      }
+      setComments(normalizeComments((data as { items?: ApiComment[] }).items || []));
+    } catch (loadError) {
+      setComments([]);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load comments");
     } finally {
       setLoading(false);
     }
-  }, [postId]);
+  };
 
   useEffect(() => {
-    loadComments();
-  }, [loadComments]);
+    void loadComments();
+  }, [postId]);
 
-  const totalCount = useMemo(() => {
-    const count = (list: Comment[]): number => list.reduce((acc, c) => acc + 1 + count(c.replies), 0);
-    return count(comments);
-  }, [comments]);
-
-  const sorted = useMemo(() => {
-    const top = [...comments];
-    if (sortBy === "latest") {
-      top.sort((a, b) => b.timestampMs - a.timestampMs);
-    } else {
-      top.sort((a, b) => b.likes - b.dislikes - (a.likes - a.dislikes));
-    }
-    return top;
+  const sortedComments = useMemo(() => {
+    const nextComments = [...comments];
+    nextComments.sort((left, right) => (
+      sortBy === "latest"
+        ? right.timestampMs - left.timestampMs
+        : left.timestampMs - right.timestampMs
+    ));
+    return nextComments;
   }, [comments, sortBy]);
 
-  const postComment = async (html: string, parentId: number | null = null) => {
-    if (!postId) return;
-    const r = await fetch("/api/blogcast/comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId, parentId, authorName: "You", content: html }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Failed to post comment");
-    await loadComments();
-  };
-
-  const addComment = async (html: string) => {
-    try {
-      await postComment(html, null);
-    } catch {
-      // keep UI stable on failure
+  const submitComment = async (html: string) => {
+    if (!postId) {
+      throw new Error("No post selected");
     }
-  };
 
-  const addReply = async (parentId: number, html: string) => {
-    try {
-      await postComment(html, parentId);
-    } catch {
-      // keep UI stable on failure
+    const trimmedAuthorName = authorName.trim();
+    const plainText = stripHtml(html);
+
+    if (!trimmedAuthorName) {
+      setError("Your name is required before posting a comment.");
+      throw new Error("Author name is required");
     }
-  };
 
-  const handleReact = async (id: number, reaction: "like" | "dislike") => {
-    const updateReaction = (list: Comment[]): Comment[] =>
-      list.map((c) => {
-        if (c.id === id) {
-          const isSame = c.userReaction === reaction;
-          const wasOpposite = c.userReaction !== null && c.userReaction !== reaction;
-          return {
-            ...c,
-            userReaction: isSame ? null : reaction,
-            likes: reaction === "like" ? (isSame ? c.likes - 1 : c.likes + 1) : wasOpposite ? c.likes - 1 : c.likes,
-            dislikes: reaction === "dislike" ? (isSame ? c.dislikes - 1 : c.dislikes + 1) : wasOpposite ? c.dislikes - 1 : c.dislikes,
-          };
-        }
-        if (c.replies.length > 0) return { ...c, replies: updateReaction(c.replies) };
-        return c;
+    if (!plainText) {
+      setError("Comment content is required.");
+      throw new Error("Comment content is required");
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/blogcast/comments", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorName: trimmedAuthorName,
+          content: html,
+          postId,
+        }),
       });
 
-    setComments((prev) => updateReaction(prev));
-    await fetch(`/api/blogcast/comments/${id}/reaction`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reaction }),
-    }).catch(() => undefined);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as { error?: string }).error || "Failed to save comment");
+      }
+
+      await loadComments();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save comment");
+      throw submitError;
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -397,41 +361,75 @@ export function CommentSection({ postId }: { postId?: number }) {
           color: #9ca3af;
           pointer-events: none;
         }
-        .comment-mention {
-          background: #e5e7eb;
-          color: #374151;
-          border-radius: 5px;
-          padding: 2px 7px;
-          font-weight: 500;
-        }
       `}</style>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, marginBottom: 28, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <span style={{ ...T.heading, fontFamily: T.fontFamily, color: "#111827" }}>Comments</span>
-          <span style={{ ...T.body, fontFamily: T.fontFamily, color: "#6b7280", fontWeight: 400 }}>{totalCount}</span>
+          <span style={{ ...T.body, fontFamily: T.fontFamily, color: "#6b7280", fontWeight: 400 }}>{comments.length}</span>
         </div>
 
         <div style={{ display: "flex", border: "1px solid #d1d5db", borderRadius: 10, overflow: "hidden" }}>
-          {(["latest", "popular"] as const).map((opt) => (
+          {(["latest", "oldest"] as const).map((option) => (
             <button
-              key={opt}
-              onClick={() => setSortBy(opt)}
-              style={{ padding: "10px 26px", border: "none", background: sortBy === opt ? "#374151" : "#fff", color: sortBy === opt ? "#fff" : "#374151", ...T.sortBtn, fontFamily: T.fontFamily, cursor: "pointer", transition: "background 0.15s, color 0.15s" }}
+              key={option}
+              type="button"
+              onClick={() => setSortBy(option)}
+              style={{
+                padding: "10px 26px",
+                border: "none",
+                background: sortBy === option ? "#374151" : "#fff",
+                color: sortBy === option ? "#fff" : "#374151",
+                ...T.sortBtn,
+                fontFamily: T.fontFamily,
+                cursor: "pointer",
+              }}
             >
-              {opt.charAt(0).toUpperCase() + opt.slice(1)}
+              {option.charAt(0).toUpperCase() + option.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ marginBottom: 36 }}>
-        <RichTextEditor placeholder="Hi @Sharon" onSend={addComment} />
+      <div style={{ marginBottom: 36, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label htmlFor="comment-author-name" style={{ ...T.inputLabel, fontFamily: T.fontFamily, color: "#111827" }}>
+            Name
+          </label>
+          <input
+            id="comment-author-name"
+            value={authorName}
+            onChange={(event) => setAuthorName(event.target.value)}
+            placeholder="Your name"
+            maxLength={100}
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: 10,
+              padding: "16px 18px",
+              ...T.inputText,
+              fontFamily: T.fontFamily,
+              color: "#111827",
+              outline: "none",
+            }}
+          />
+        </div>
+        <RichTextEditor disabled={submitting} onSend={submitComment} placeholder="Add a comment" />
+        {error && (
+          <div style={{ ...T.meta, fontFamily: T.fontFamily, color: "#991b1b" }}>
+            {error}
+          </div>
+        )}
       </div>
 
+      {!loading && sortedComments.length === 0 && !error && (
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "28px 24px", background: "#f9fafb", ...T.meta, fontFamily: T.fontFamily, color: "#6b7280" }}>
+          Be the first to comment on this post.
+        </div>
+      )}
+
       <div>
-        {sorted.map((comment) => (
-          <CommentItem key={comment.id} comment={comment} onReply={addReply} onReact={handleReact} />
+        {sortedComments.map((comment) => (
+          <CommentItem key={comment.id} comment={comment} />
         ))}
       </div>
 
@@ -440,7 +438,7 @@ export function CommentSection({ postId }: { postId?: number }) {
           <path d="M21 12a9 9 0 1 1-6.219-8.56" />
         </svg>
         <style>{`@keyframes cs-spin { to { transform: rotate(360deg); } }`}</style>
-        {loading ? "Loading" : "Loaded"}
+        {loading ? "Loading" : comments.length > 0 ? "Loaded" : "Ready"}
       </div>
     </div>
   );

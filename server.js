@@ -255,38 +255,32 @@ async function ensureCommentsTable() {
         `CREATE TABLE IF NOT EXISTS comments (
             id INT AUTO_INCREMENT PRIMARY KEY,
             post_id INT NOT NULL,
-            parent_id INT NULL,
             author_name VARCHAR(100) NOT NULL,
-            author_email VARCHAR(255) NULL,
-            avatar_url VARCHAR(500) NULL,
             content LONGTEXT NOT NULL,
-            likes INT NOT NULL DEFAULT 0,
-            dislikes INT NOT NULL DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            deleted_at TIMESTAMP NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_comments_post_id (post_id),
-            INDEX idx_comments_parent_id (parent_id),
             CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
         ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci`
     );
 
-    // Backfill compatibility for older comments tables that used different columns.
-    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id INT NULL');
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_name VARCHAR(100) NULL');
-    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS author_email VARCHAR(255) NULL');
-    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL');
-    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes INT NOT NULL DEFAULT 0');
-    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS dislikes INT NOT NULL DEFAULT 0');
+    await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
 
     try {
         await dbPromise.query(
             `UPDATE comments
-             SET author_name = COALESCE(NULLIF(author_name, ''), author)
+             SET author_name = COALESCE(NULLIF(author_name, ''), author, 'Anonymous')
              WHERE author_name IS NULL OR author_name = ''`
         );
     } catch {
         // Ignore if legacy `author` column is not present.
     }
+
+    await dbPromise.query(
+        `UPDATE comments
+         SET author_name = 'Anonymous'
+         WHERE author_name IS NULL OR author_name = ''`
+    );
 }
 
 // ─── Public routes ─────────────────────────────────────────────────────────────
@@ -337,11 +331,10 @@ app.get('/api/blogcast/comments', async (req, res) => {
 
     try {
         const [rows] = await dbPromise.query(
-            `SELECT id, post_id AS postId, parent_id AS parentId, author_name AS authorName,
-                    author_email AS authorEmail, avatar_url AS avatarUrl, content,
-                    likes, dislikes, created_at AS createdAt
+            `SELECT id, post_id AS postId, author_name AS authorName, content,
+                    created_at AS createdAt
              FROM comments
-             WHERE post_id = ? AND deleted_at IS NULL
+             WHERE post_id = ?
              ORDER BY created_at ASC`,
             [postId]
         );
@@ -353,9 +346,7 @@ app.get('/api/blogcast/comments', async (req, res) => {
 
 app.post('/api/blogcast/comments', async (req, res) => {
     const postId = parseInt(req.body.postId, 10);
-    const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
     const authorName = String(req.body.authorName || '').trim();
-    const authorEmail = String(req.body.authorEmail || '').trim() || null;
     const content = String(req.body.content || '').trim();
 
     if (!postId || postId < 1) return res.status(400).json({ error: 'Invalid post ID' });
@@ -365,7 +356,6 @@ app.post('/api/blogcast/comments', async (req, res) => {
     const safeContent = content
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
         .replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
-    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(authorName)}`;
 
     try {
         const [postRows] = await dbPromise.query(
@@ -375,41 +365,19 @@ app.post('/api/blogcast/comments', async (req, res) => {
         if (!postRows[0]) return res.status(404).json({ error: 'Post not found' });
 
         const [result] = await dbPromise.query(
-            `INSERT INTO comments (post_id, parent_id, author_name, author_email, avatar_url, content)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [postId, parentId, authorName, authorEmail, avatarUrl, safeContent]
+            `INSERT INTO comments (post_id, author_name, content)
+             VALUES (?, ?, ?)`,
+            [postId, authorName, safeContent]
         );
 
         const [rows] = await dbPromise.query(
-            `SELECT id, post_id AS postId, parent_id AS parentId, author_name AS authorName,
-                    author_email AS authorEmail, avatar_url AS avatarUrl, content,
-                    likes, dislikes, created_at AS createdAt
+            `SELECT id, post_id AS postId, author_name AS authorName, content,
+                    created_at AS createdAt
              FROM comments
              WHERE id = ? LIMIT 1`,
             [result.insertId]
         );
         res.status(201).json(rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.patch('/api/blogcast/comments/:id/reaction', async (req, res) => {
-    const id = parseInt(req.params.id, 10);
-    const reaction = req.body?.reaction;
-    if (!id || id < 1) return res.status(400).json({ error: 'Invalid comment ID' });
-    if (!['like', 'dislike'].includes(reaction)) {
-        return res.status(400).json({ error: 'Invalid reaction' });
-    }
-
-    try {
-        await dbPromise.query(
-            reaction === 'like'
-                ? 'UPDATE comments SET likes = likes + 1 WHERE id = ? AND deleted_at IS NULL'
-                : 'UPDATE comments SET dislikes = dislikes + 1 WHERE id = ? AND deleted_at IS NULL',
-            [id]
-        );
-        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -779,6 +747,7 @@ app.post('/api/admin/upload/thumbnail', authMiddleware, async (req, res) => {
     }
 
     fs.writeFileSync(path.join(uploadsDir, safeName), buffer);
+    console.log('[upload] saved thumbnail:', path.join(uploadsDir, safeName));
     res.json({ url: `/uploads/${safeName}` });
 });
 
@@ -809,6 +778,7 @@ async function startServer() {
         if (!fs.existsSync(uploadsDir)) {
             fs.mkdirSync(uploadsDir, { recursive: true });
         }
+        console.log('[startup] uploadsDir:', uploadsDir);
         await ensureCommentsTable();
     } catch (error) {
         console.error('Failed to ensure comments table:', error.message);
