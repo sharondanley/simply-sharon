@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, GripVertical, Image, Type, Quote, Video,
   Bold, Italic, Underline, Hash, Eye, EyeOff, Save, ArrowLeft, Upload,
-  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil, MessageSquare, ExternalLink,
+  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil, MessageSquare, ExternalLink, Search,
 } from "lucide-react";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -1172,13 +1172,14 @@ function PostsList({
       )}
 
       {/* Search */}
-      <div className="mb-4">
+      <div className="mb-4 relative">
+        <Search size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? "text-gray-400" : "text-gray-500"}`} />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by title, topic, or tag…"
-          className={inputClass}
+          className={`${inputClass} pl-11`}
         />
       </div>
 
@@ -1306,13 +1307,14 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
 
   return (
     <div>
-      <div className="mb-4">
+      <div className="mb-4 relative">
+        <Search size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? "text-gray-400" : "text-gray-500"}`} />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search comments by author, content, or post..."
-          className={inputClass}
+          className={`${inputClass} pl-11`}
         />
       </div>
 
@@ -1472,7 +1474,7 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
 
 // ─── Main admin page ──────────────────────────────────────────────────────────
 
-type AdminView = "dashboard" | "posts" | "comments" | "new-post" | "edit-post";
+type AdminView = "dashboard" | "posts" | "comments" | "preferences" | "new-post" | "edit-post";
 
 export default function AdminPanel() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -1513,9 +1515,9 @@ export default function AdminPanel() {
     try {
       const saved = await API.updatePersonalization(personalization);
       setPersonalization(saved);
-      toast.success("Dashboard personalization updated.");
+      toast.success("Personal preferences updated.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save personalization.");
+      toast.error(err instanceof Error ? err.message : "Failed to save preferences.");
     } finally {
       setSavingPersonalization(false);
     }
@@ -1531,7 +1533,7 @@ export default function AdminPanel() {
         profilePhotoUrl: kind === "profile" ? url : current.profilePhotoUrl,
         inspirationImageUrl: kind === "inspiration" ? url : current.inspirationImageUrl,
       }));
-      toast.success(kind === "profile" ? "Profile photo uploaded." : "Inspiration image uploaded.");
+      toast.success(kind === "profile" ? "Profile photo uploaded." : "Banner image uploaded.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Image upload failed.");
     } finally {
@@ -1673,6 +1675,15 @@ export default function AdminPanel() {
             {dark ? "Light Mode" : "Dark Mode"}
           </button>
 
+          <button
+            onClick={() => setView("preferences")}
+            className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base transition-colors mb-3 text-left ${view === "preferences" ? navActive : navInactive}`}
+            title="Open personal preferences"
+          >
+            <Settings size={18} />
+            Personal Preferences
+          </button>
+
           {/* User info */}
           <div className={`flex items-center gap-3 mb-3 p-3 rounded-lg ${dark ? "bg-gray-700" : "bg-gray-50"}`}>
             <img
@@ -1713,89 +1724,43 @@ export default function AdminPanel() {
           <div>
             <h2 className={`text-3xl font-bold mb-2 ${textPrimary}`}>Welcome back, {displayName.split(" ")[0] || "Sharon"}</h2>
             <p className={`text-base mb-8 ${textMuted}`}>Here's an overview of your content.</p>
-            <div className={`rounded-2xl border p-6 mb-8 ${cardBg}`}>
-              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${statIconBg}`}>
-                      <Sun size={22} />
-                    </div>
-                    <div>
-                      <h3 className={`text-2xl font-bold ${textPrimary}`}>Inspiration</h3>
-                      <p className={`text-sm ${textMuted}`}>Personalize Sharon Danley&apos;s dashboard profile and weekly motivation content.</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <label className="block">
-                        <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Profile Name</span>
-                        <input
-                          value={personalization.displayName}
-                          onChange={(e) => setPersonalization((current) => ({ ...current, displayName: e.target.value }))}
-                          className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
-                          placeholder="Sharon Danley"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Quote of the Week</span>
-                        <textarea
-                          value={personalization.inspirationQuote}
-                          onChange={(e) => setPersonalization((current) => ({ ...current, inspirationQuote: e.target.value }))}
-                          className={`w-full min-h-[132px] px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
-                          placeholder="Enter the weekly quote"
-                        />
-                      </label>
-                      <div className="flex flex-wrap gap-3">
-                        <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
-                          <Upload size={16} />
-                          {uploadingPersonalizationImage === "profile" ? "Uploading profile photo…" : "Upload Profile Photo"}
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("profile", e.target.files?.[0])} />
-                        </label>
-                        <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
-                          <Image size={16} />
-                          {uploadingPersonalizationImage === "inspiration" ? "Uploading inspiration image…" : "Upload Inspiration Image"}
-                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("inspiration", e.target.files?.[0])} />
-                        </label>
-                        <button
-                          onClick={savePersonalization}
-                          disabled={savingPersonalization}
-                          className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-colors ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"} disabled:opacity-60`}
-                        >
-                          <Save size={16} /> {savingPersonalization ? "Saving…" : "Save Inspiration"}
-                        </button>
-                      </div>
-                    </div>
-                    <div className={`rounded-2xl border overflow-hidden ${dark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"}`}>
-                      <div className="p-5 flex items-center gap-4 border-b border-inherit">
-                        <img
-                          src={personalization.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`}
-                          alt={displayName}
-                          className="w-16 h-16 rounded-full object-cover shrink-0"
-                        />
-                        <div>
-                          <p className={`text-lg font-bold ${textPrimary}`}>{displayName}</p>
-                          <p className={`text-sm ${textMuted}`}>Dashboard profile preview</p>
-                        </div>
-                      </div>
-                      <div className="p-5 space-y-4">
-                        <blockquote className={`text-lg leading-8 italic ${textPrimary}`}>
-                          “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
-                        </blockquote>
-                        {personalization.inspirationImageUrl ? (
-                          <img
-                            src={personalization.inspirationImageUrl}
-                            alt="Inspirational upload"
-                            className="w-full h-64 object-cover rounded-xl"
-                          />
-                        ) : (
-                          <div className={`w-full h-64 rounded-xl border border-dashed flex items-center justify-center text-center px-6 ${dark ? "border-gray-600 text-gray-400" : "border-gray-300 text-gray-500"}`}>
-                            Upload a family photo or inspirational image to feature at the top of the dashboard.
-                          </div>
-                        )}
-                      </div>
+            <div className={`rounded-[28px] border overflow-hidden mb-8 ${cardBg}`}>
+              <div className="relative h-[280px] md:h-[340px] lg:h-[380px]">
+                {personalization.inspirationImageUrl ? (
+                  <img
+                    src={personalization.inspirationImageUrl}
+                    alt="Dashboard banner"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className={`absolute inset-0 ${dark ? "bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900" : "bg-gradient-to-br from-stone-200 via-white to-stone-300"}`} />
+                )}
+                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute left-8 right-8 bottom-8 flex items-end justify-between gap-6">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <img
+                      src={personalization.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`}
+                      alt={displayName}
+                      className="w-20 h-20 rounded-2xl object-cover shrink-0 border border-white/50 shadow-lg"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-white/80 text-sm uppercase tracking-[0.22em]">Dashboard</p>
+                      <h3 className="text-white text-3xl md:text-4xl font-semibold truncate">{displayName}</h3>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setView("preferences")}
+                    className="shrink-0 inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/90 text-black font-semibold hover:bg-white transition-colors"
+                  >
+                    <Settings size={16} /> Edit Preferences
+                  </button>
                 </div>
+              </div>
+              <div className={`px-8 py-6 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
+                <p className={`text-xs uppercase tracking-[0.24em] mb-2 ${textMuted}`}>Quote of the Week</p>
+                <blockquote className={`text-xl md:text-2xl leading-relaxed ${textPrimary}`}>
+                  “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
+                </blockquote>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
@@ -1884,6 +1849,119 @@ export default function AdminPanel() {
               </button>
             </div>
             <CommentsModerationTable dark={dark} refreshKey={commentsRefreshKey} onChanged={() => setPostsRefreshKey((k) => k + 1)} />
+          </div>
+        )}
+
+        {view === "preferences" && (
+          <div>
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <h2 className={`text-3xl font-bold font-['Source_Sans_3'] ${textPrimary}`}>Personal Preferences</h2>
+                <p className={`text-base mt-2 ${textMuted}`}>Manage Sharon Danley&apos;s profile, weekly quote, and dashboard banner.</p>
+              </div>
+              <button
+                onClick={savePersonalization}
+                disabled={savingPersonalization}
+                className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-colors ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"} disabled:opacity-60`}
+              >
+                <Save size={16} /> {savingPersonalization ? "Saving…" : "Save Preferences"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_420px] gap-6">
+              <div className={`rounded-2xl border p-6 ${cardBg}`}>
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Profile Name</span>
+                    <input
+                      value={personalization.displayName}
+                      onChange={(e) => setPersonalization((current) => ({ ...current, displayName: e.target.value }))}
+                      className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                      placeholder="Sharon Danley"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Quote of the Week</span>
+                    <textarea
+                      value={personalization.inspirationQuote}
+                      onChange={(e) => setPersonalization((current) => ({ ...current, inspirationQuote: e.target.value }))}
+                      className={`w-full min-h-[150px] px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                      placeholder="Enter the weekly quote"
+                    />
+                  </label>
+
+                  <div>
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Banner Image</span>
+                    <p className={`text-sm mb-4 ${textMuted}`}>Upload a banner image to feature at the top of the dashboard.</p>
+                    <div className="flex flex-wrap gap-3">
+                      <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
+                        <Image size={16} />
+                        {uploadingPersonalizationImage === "inspiration" ? "Uploading banner image…" : "Upload Banner Image"}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("inspiration", e.target.files?.[0])} />
+                      </label>
+                      {personalization.inspirationImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setPersonalization((current) => ({ ...current, inspirationImageUrl: "" }))}
+                          className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}
+                        >
+                          <X size={16} /> Remove Banner
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Profile Photo</span>
+                    <div className="flex flex-wrap gap-3">
+                      <label className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}>
+                        <Upload size={16} />
+                        {uploadingPersonalizationImage === "profile" ? "Uploading profile photo…" : "Upload Profile Photo"}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePersonalizationImageUpload("profile", e.target.files?.[0])} />
+                      </label>
+                      {personalization.profilePhotoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setPersonalization((current) => ({ ...current, profilePhotoUrl: "" }))}
+                          className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors ${dark ? "border-gray-500 text-white hover:bg-gray-700" : "border-gray-300 text-black hover:bg-gray-100"}`}
+                        >
+                          <X size={16} /> Remove Photo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+                <div className="relative h-56">
+                  {personalization.inspirationImageUrl ? (
+                    <img src={personalization.inspirationImageUrl} alt="Banner preview" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <div className={`absolute inset-0 ${dark ? "bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900" : "bg-gradient-to-br from-stone-200 via-white to-stone-300"}`} />
+                  )}
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="absolute left-5 bottom-5 flex items-center gap-3">
+                    <img
+                      src={personalization.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`}
+                      alt={displayName}
+                      className="w-14 h-14 rounded-xl object-cover border border-white/60"
+                    />
+                    <div>
+                      <p className="text-white text-lg font-semibold">{displayName}</p>
+                      <p className="text-white/80 text-sm">Dashboard preview</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <p className={`text-xs uppercase tracking-[0.22em] mb-2 ${textMuted}`}>Quote of the Week</p>
+                  <blockquote className={`text-lg leading-8 ${textPrimary}`}>
+                    “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
+                  </blockquote>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
