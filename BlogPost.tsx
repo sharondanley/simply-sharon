@@ -20,13 +20,25 @@ const ASSETS = {
   commentSection:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/124-76_ee23175d.webp",
 };
 
-function getGridColumnCount(layout?: string) {
-  return layout === "3x3" ? 3 : 3;
+function getLegacyGridDimensions(layout?: string) {
+  return layout === "3x3" ? { rows: 3, columns: 3 } : { rows: 1, columns: 3 };
+}
+
+function sanitizeGrid(block: BlogBlock) {
+  const legacy = getLegacyGridDimensions(block.layout);
+  return {
+    rows: Math.max(1, Math.min(10, Math.round(block.grid?.rows ?? legacy.rows))),
+    columns: Math.max(1, Math.min(10, Math.round(block.grid?.columns ?? legacy.columns))),
+  };
+}
+
+function getGridColumnCount(block: BlogBlock) {
+  return sanitizeGrid(block).columns;
 }
 
 function ensureGridCells(block: BlogBlock) {
-  const layout = block.layout === "3x3" ? "3x3" : "1x3";
-  const count = layout === "3x3" ? 9 : 3;
+  const grid = sanitizeGrid(block);
+  const count = grid.rows * grid.columns;
   return Array.from({ length: count }, (_, index) => {
     const existing = block.cells?.[index];
     return {
@@ -64,10 +76,10 @@ function renderBlock(block: BlogBlock, index: number) {
       );
     case "customGrid": {
       const cells = ensureGridCells(block);
-      const columns = getGridColumnCount(block.layout);
+      const columns = getGridColumnCount(block);
       return (
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
+          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
             {cells.map((cell) => (
               <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
                 {cell.contentType === "paragraph" ? (
@@ -189,6 +201,13 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
   return (
     <SiteLayout background="#fff" includeFooter={true}>
+      <style>{`
+        @media (max-width: 767px) {
+          .blog-post-custom-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
       <ScaledPage watchKey={`${post?.id || "missing"}-${loading}-${bodyBlocks.length}`}>
         <div style={{ width: "1920px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "43px" }}>
           <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "14px", paddingTop: "20px" }}>

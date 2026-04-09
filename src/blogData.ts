@@ -4,6 +4,11 @@ export type GridCellContentType = "paragraph" | "image" | "thumbnail";
 
 export type GridLayout = "1x3" | "3x3";
 
+export type GridDimensions = {
+  rows: number;
+  columns: number;
+};
+
 export type GridCell = {
   id: string;
   contentType: GridCellContentType;
@@ -19,6 +24,7 @@ export type BlogBlock = {
   url?: string;
   caption?: string;
   layout?: GridLayout;
+  grid?: GridDimensions;
   cells?: GridCell[];
 };
 

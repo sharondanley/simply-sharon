@@ -12,6 +12,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { GridBlockEditor } from "./GridBlockEditor";
 import {
   Plus, Trash2, GripVertical, Image, Type, Quote, Video,
   Bold, Italic, Underline, Hash, Eye, EyeOff, Save, ArrowLeft, Upload,
@@ -68,6 +69,11 @@ type PostDetail = PostItem & {
 type GridCellContentType = "paragraph" | "image" | "thumbnail";
 
 type GridLayout = "1x3" | "3x3";
+
+type GridDimensions = {
+  rows: number;
+  columns: number;
+};
 
 type GridCell = {
   id: string;
@@ -433,47 +439,78 @@ type Block = {
   url?: string;
   caption?: string;
   layout?: GridLayout;
+  grid?: GridDimensions;
   cells?: GridCell[];
 };
 
-const GRID_LAYOUT_OPTIONS: Array<{ value: GridLayout; label: string }> = [
-  { value: "1x3", label: "1 × 3" },
-  { value: "3x3", label: "3 × 3" },
-];
+const MAX_GRID_SIZE = 10;
+const MIN_GRID_SIZE = 1;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
 }
 
-function getGridColumnCount(layout: GridLayout) {
-  return layout === "3x3" ? 3 : 3;
+function clampGridValue(value: number) {
+  return Math.max(MIN_GRID_SIZE, Math.min(MAX_GRID_SIZE, Math.round(value || MIN_GRID_SIZE)));
 }
 
-function getGridCellCount(layout: GridLayout) {
-  return layout === "3x3" ? 9 : 3;
+function getLegacyGridDimensions(layout?: GridLayout): GridDimensions {
+  return layout === "3x3" ? { rows: 3, columns: 3 } : { rows: 1, columns: 3 };
 }
 
-function ensureGridCells(layout: GridLayout, cells?: GridCell[]) {
-  const count = getGridCellCount(layout);
-  return Array.from({ length: count }, (_, index) => {
-    const existing = cells?.[index];
-    return {
-      id: existing?.id || generateId(),
-      contentType: existing?.contentType || "paragraph",
-      content: existing?.content || "",
-      url: existing?.url || "",
-      caption: existing?.caption || "",
-    } satisfies GridCell;
-  });
+function sanitizeGridDimensions(grid?: Partial<GridDimensions>, layout?: GridLayout): GridDimensions {
+  const legacy = getLegacyGridDimensions(layout);
+  return {
+    rows: clampGridValue(grid?.rows ?? legacy.rows),
+    columns: clampGridValue(grid?.columns ?? legacy.columns),
+  };
+}
+
+function getGridCellCount(grid: GridDimensions) {
+  return grid.rows * grid.columns;
+}
+
+function getGridColumnCount(grid: GridDimensions) {
+  return grid.columns;
+}
+
+function normalizeGridCell(cell?: GridCell): GridCell {
+  return {
+    id: cell?.id || generateId(),
+    contentType: cell?.contentType || "paragraph",
+    content: cell?.content || "",
+    url: cell?.url || "",
+    caption: cell?.caption || "",
+  };
+}
+
+function ensureGridCells(gridOrLayout: GridDimensions | GridLayout, cells?: GridCell[]) {
+  const grid = typeof gridOrLayout === "string"
+    ? sanitizeGridDimensions(undefined, gridOrLayout)
+    : sanitizeGridDimensions(gridOrLayout);
+  const count = getGridCellCount(grid);
+  return Array.from({ length: count }, (_, index) => normalizeGridCell(cells?.[index]));
+}
+
+function normalizeCustomGridBlock(block: Block): Block {
+  if (block.type !== "customGrid") return block;
+  const grid = sanitizeGridDimensions(block.grid, block.layout);
+  return {
+    ...block,
+    grid,
+    layout: undefined,
+    cells: ensureGridCells(grid, block.cells),
+  };
 }
 
 function createBlock(type: BlockType): Block {
   if (type === "customGrid") {
+    const grid = { rows: 1, columns: 3 };
     return {
       id: generateId(),
       type,
-      layout: "1x3",
-      cells: ensureGridCells("1x3"),
+      grid,
+      cells: ensureGridCells(grid),
     };
   }
 
@@ -674,9 +711,10 @@ function BlockEditor({
     setUploadingCellId(cellId);
     try {
       const url = await uploadImageFile(file);
+      const nextBlock = normalizeCustomGridBlock(block);
       onChange({
-        ...block,
-        cells: ensureGridCells(block.layout || "1x3", block.cells).map((cell) => cell.id === cellId ? { ...cell, url } : cell),
+        ...nextBlock,
+        cells: ensureGridCells(nextBlock.grid || { rows: 1, columns: 3 }, nextBlock.cells).map((cell) => cell.id === cellId ? { ...cell, url } : cell),
       });
       toast.success("Grid image uploaded.");
     } catch (err) {
@@ -760,96 +798,17 @@ function BlockEditor({
       );
     }
     if (block.type === "customGrid") {
-      const layout = block.layout || "1x3";
-      const cells = ensureGridCells(layout, block.cells);
-      const columns = getGridColumnCount(layout);
       return (
-        <div className="flex flex-col gap-4">
-          <div>
-            <span className={`block text-sm font-semibold mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Grid Layout</span>
-            <select
-              value={layout}
-              onChange={(e) => {
-                const nextLayout = e.target.value as GridLayout;
-                onChange({ ...block, layout: nextLayout, cells: ensureGridCells(nextLayout, cells) });
-              }}
-              className={inputClass}
-            >
-              {GRID_LAYOUT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-            {cells.map((cell, index) => (
-              <div key={cell.id} className={`rounded-2xl border p-4 flex flex-col gap-3 ${dark ? "border-gray-600 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className={`text-sm font-bold font-['Source_Sans_3'] ${dark ? "text-gray-200" : "text-gray-800"}`}>Cell {index + 1}</span>
-                  <select
-                    value={cell.contentType}
-                    onChange={(e) => onChange({
-                      ...block,
-                      cells: cells.map((existing) => existing.id === cell.id ? { ...existing, contentType: e.target.value as GridCellContentType, content: existing.content || "", url: existing.url || "", caption: existing.caption || "" } : existing),
-                    })}
-                    className={`px-3 py-2 border rounded-lg text-sm font-['Source_Sans_3'] ${dark ? "border-gray-500 bg-gray-700 text-gray-100" : "border-gray-300 bg-white text-gray-900"}`}
-                  >
-                    <option value="paragraph">Paragraph</option>
-                    <option value="image">Image</option>
-                    <option value="thumbnail">Thumbnail</option>
-                  </select>
-                </div>
-
-                {cell.contentType === "paragraph" ? (
-                  <textarea
-                    value={cell.content || ""}
-                    onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, content: e.target.value } : existing) })}
-                    placeholder="Write paragraph content for this cell..."
-                    rows={5}
-                    className={inputClass + " resize-y"}
-                  />
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => gridFileInputRefs.current[cell.id]?.click()}
-                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${dark ? "border-gray-500 text-gray-200 hover:border-white hover:text-white" : "border-gray-300 text-gray-700 hover:border-black hover:text-black"}`}
-                      >
-                        <Upload size={16} /> {uploadingCellId === cell.id ? "Uploading..." : "Upload image"}
-                      </button>
-                      <span className={helperClass}>or paste an image URL</span>
-                    </div>
-                    <input
-                      ref={(node) => { gridFileInputRefs.current[cell.id] = node; }}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        void handleGridCellUpload(cell.id, e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                    <input
-                      type="text"
-                      value={cell.url || ""}
-                      onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, url: e.target.value } : existing) })}
-                      placeholder="Image URL..."
-                      className={inputClass}
-                    />
-                    <input
-                      type="text"
-                      value={cell.caption || ""}
-                      onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, caption: e.target.value } : existing) })}
-                      placeholder={cell.contentType === "thumbnail" ? "Thumbnail label (optional)" : "Caption (optional)"}
-                      className={inputClass}
-                    />
-                    {cell.url ? <img src={cell.url} alt={cell.caption || ""} className={`w-full rounded-xl object-cover ${cell.contentType === "thumbnail" ? "h-28" : "max-h-56"}`} /> : null}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <GridBlockEditor
+          block={normalizeCustomGridBlock(block)}
+          onChange={onChange}
+          dark={dark}
+          inputClass={inputClass}
+          helperClass={helperClass}
+          uploadingCellId={uploadingCellId}
+          gridFileInputRefs={gridFileInputRefs}
+          handleGridCellUpload={handleGridCellUpload}
+        />
       );
     }
     return <RichTextBlock block={block} onChange={onChange} dark={dark} />;
@@ -966,17 +925,18 @@ function PostPreview({
           </div>
         );
       case "customGrid": {
-        const layout = block.layout || "1x3";
-        const cells = ensureGridCells(layout, block.cells);
-        const columns = getGridColumnCount(layout);
+        const normalizedBlock = normalizeCustomGridBlock(block);
+        const grid = normalizedBlock.grid || { rows: 1, columns: 3 };
+        const cells = ensureGridCells(grid, normalizedBlock.cells);
+        const columns = getGridColumnCount(grid);
         return (
           <div key={block.id} className="my-6 grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
             {cells.map((cell) => (
-              <div key={cell.id} className={`min-h-36 rounded-2xl border p-4 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+              <div key={cell.id} className={`min-h-36 rounded-2xl border border-dashed p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-300 bg-gray-50/50"}`}>
                 {cell.contentType === "paragraph" && (
                   <div
                     className={`text-base leading-relaxed font-['Source_Sans_3'] ${bodyColor}`}
-                    dangerouslySetInnerHTML={{ __html: cell.content || "<em>Paragraph cell</em>" }}
+                    dangerouslySetInnerHTML={{ __html: cell.content || "<em>Paragraph slot</em>" }}
                   />
                 )}
                 {(cell.contentType === "image" || cell.contentType === "thumbnail") && cell.url ? (
@@ -986,7 +946,7 @@ function PostPreview({
                   </div>
                 ) : null}
                 {(cell.contentType === "image" || cell.contentType === "thumbnail") && !cell.url ? (
-                  <div className={`flex min-h-28 items-center justify-center rounded-xl ${dark ? "bg-gray-700 text-gray-500" : "bg-white text-gray-400"}`}>
+                  <div className={`flex min-h-28 items-center justify-center rounded-xl ${dark ? "bg-gray-800 text-gray-500" : "bg-white text-gray-400"}`}>
                     <Image size={28} />
                   </div>
                 ) : null}
@@ -1126,7 +1086,7 @@ function PostEditor({
         setHashtags((post.hashtags || []).join(", "));
         setThumbnailUrl(post.thumbnailUrl || "");
         setThumbnailPreview(post.thumbnailUrl || "");
-        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? { ...block, layout: block.layout || "1x3", cells: ensureGridCells(block.layout || "1x3", block.cells) } : block) : [{ id: generateId(), type: "paragraph", content: "" }]);
+        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? normalizeCustomGridBlock(block) : block) : [{ id: generateId(), type: "paragraph", content: "" }]);
         setPublished(Boolean(post.published));
       })
       .catch((err: unknown) => {

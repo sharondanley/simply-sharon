@@ -94,7 +94,7 @@ function parseContentBlocks(value) {
     }];
 }
 
-function hydratePostRecord(row) {
+function hydratePostRecord(row, blocksOverride) {
     if (!row) return null;
 
     return {
@@ -117,9 +117,69 @@ function hydratePostRecord(row) {
         updatedAt: row.updatedAt || null,
         authorName: row.authorName || row.author || 'Sharon Danley',
         hashtags: parseJsonArray(row.hashtags),
-        blocks: parseContentBlocks(row.content),
+        blocks: Array.isArray(blocksOverride) ? blocksOverride : parseContentBlocks(row.content),
         published: row.status ? row.status === 'published' : Boolean(row.publishedAt),
     };
+}
+
+async function ensureContentBlocksTable() {
+    await dbPromise.query(`
+        CREATE TABLE IF NOT EXISTS content_blocks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            post_id INT NOT NULL,
+            block_index INT NOT NULL,
+            block_type VARCHAR(64) NOT NULL,
+            data_json LONGTEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_post_block_index (post_id, block_index),
+            KEY idx_content_blocks_post_id (post_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+}
+
+async function fetchContentBlocks(postId, fallbackContent) {
+    const [rows] = await dbPromise.query(
+        'SELECT data_json FROM content_blocks WHERE post_id = ? ORDER BY block_index ASC, id ASC',
+        [postId]
+    );
+
+    if (!rows.length) {
+        return parseContentBlocks(fallbackContent);
+    }
+
+    const parsedBlocks = rows
+        .map((row) => {
+            try {
+                return JSON.parse(row.data_json);
+            } catch {
+                return null;
+            }
+        })
+        .filter(Boolean);
+
+    return parsedBlocks.length ? parsedBlocks : parseContentBlocks(fallbackContent);
+}
+
+async function saveContentBlocks(postId, blocks) {
+    const normalizedBlocks = Array.isArray(blocks) ? blocks : [];
+    await dbPromise.query('DELETE FROM content_blocks WHERE post_id = ?', [postId]);
+
+    if (!normalizedBlocks.length) {
+        return;
+    }
+
+    const values = normalizedBlocks.map((block, index) => [
+        postId,
+        index,
+        String(block?.type || 'paragraph'),
+        JSON.stringify(block || {}),
+    ]);
+
+    await dbPromise.query(
+        'INSERT INTO content_blocks (post_id, block_index, block_type, data_json) VALUES ?',
+        [values]
+    );
 }
 
 async function ensurePostsMetadataColumns() {
@@ -165,7 +225,10 @@ async function fetchAdminPostById(id) {
         );
     }
 
-    return hydratePostRecord(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    const blocks = await fetchContentBlocks(row.id, row.content);
+    return hydratePostRecord(row, blocks);
 }
 
 async function fetchPublicPostByField(field, value) {
@@ -206,7 +269,10 @@ async function fetchPublicPostByField(field, value) {
         );
     }
 
-    return hydratePostRecord(rows[0]);
+    const row = rows[0];
+    if (!row) return null;
+    const blocks = await fetchContentBlocks(row.id, row.content);
+    return hydratePostRecord(row, blocks);
 }
 
 async function fetchPublicArchivePosts({ page, limit, search, year, month, sort }) {
@@ -925,6 +991,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
                 ]
             );
         }
+        await saveContentBlocks(result.insertId, blocks || []);
         res.status(201).json({ slug, id: result.insertId });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1002,6 +1069,7 @@ app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
             );
         }
 
+        await saveContentBlocks(id, blocks || []);
         res.json({ ok: true, slug: existing.slug });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1200,6 +1268,7 @@ async function startServer() {
         await ensureCommentsTable();
         await ensureSiteSettingsTable();
         await ensurePostsMetadataColumns();
+        await ensureContentBlocksTable();
     } catch (error) {
         console.error('Failed to ensure comments table:', error.message);
         process.exit(1);
