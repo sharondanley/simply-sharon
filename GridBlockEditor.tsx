@@ -49,21 +49,22 @@ type GridBlockEditorProps = {
   handleGridCellUpload: (cellId: string, file?: File) => Promise<void>;
 };
 
-const MAX_GRID_SIZE = 10;
+const MAX_GRID_ROWS = 6;
+const MAX_GRID_COLUMNS = 3;
 const MIN_GRID_SIZE = 1;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
 }
 
-function clampGridValue(value: number) {
-  return Math.max(MIN_GRID_SIZE, Math.min(MAX_GRID_SIZE, Math.round(value || MIN_GRID_SIZE)));
+function clampGridValue(value: number, max: number) {
+  return Math.max(MIN_GRID_SIZE, Math.min(max, Math.round(value || MIN_GRID_SIZE)));
 }
 
 function sanitizeGrid(grid?: Partial<GridDimensions>): GridDimensions {
   return {
-    rows: clampGridValue(grid?.rows ?? 1),
-    columns: clampGridValue(grid?.columns ?? 3),
+    rows: clampGridValue(grid?.rows ?? 1, MAX_GRID_ROWS),
+    columns: clampGridValue(grid?.columns ?? 3, MAX_GRID_COLUMNS),
   };
 }
 
@@ -297,17 +298,17 @@ export function GridBlockEditor({
           <div>
             <span className={`block text-sm font-semibold mb-1 ${dark ? "text-gray-200" : "text-gray-800"}`}>Visual Grid Selection</span>
             <p className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-500"}`}>
-              Hover to preview a layout, then click to create or resize the grid.
+              Hover to preview a layout, then click to create or resize the grid up to 6 rows by 3 columns.
             </p>
           </div>
           <div
             className="inline-grid gap-1 w-max"
-            style={{ gridTemplateColumns: `repeat(${MAX_GRID_SIZE}, minmax(0, 18px))` }}
+            style={{ gridTemplateColumns: `repeat(${MAX_GRID_COLUMNS}, minmax(0, 18px))` }}
             onMouseLeave={() => setHoverGrid(null)}
           >
-            {Array.from({ length: MAX_GRID_SIZE * MAX_GRID_SIZE }, (_, index) => {
-              const row = Math.floor(index / MAX_GRID_SIZE) + 1;
-              const column = (index % MAX_GRID_SIZE) + 1;
+            {Array.from({ length: MAX_GRID_ROWS * MAX_GRID_COLUMNS }, (_, index) => {
+              const row = Math.floor(index / MAX_GRID_COLUMNS) + 1;
+              const column = (index % MAX_GRID_COLUMNS) + 1;
               const highlighted = row <= previewGrid.rows && column <= previewGrid.columns;
               return (
                 <button

@@ -443,15 +443,16 @@ type Block = {
   cells?: GridCell[];
 };
 
-const MAX_GRID_SIZE = 10;
+const MAX_GRID_ROWS = 6;
+const MAX_GRID_COLUMNS = 3;
 const MIN_GRID_SIZE = 1;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
 }
 
-function clampGridValue(value: number) {
-  return Math.max(MIN_GRID_SIZE, Math.min(MAX_GRID_SIZE, Math.round(value || MIN_GRID_SIZE)));
+function clampGridValue(value: number, max: number) {
+  return Math.max(MIN_GRID_SIZE, Math.min(max, Math.round(value || MIN_GRID_SIZE)));
 }
 
 function getLegacyGridDimensions(layout?: GridLayout): GridDimensions {
@@ -461,8 +462,8 @@ function getLegacyGridDimensions(layout?: GridLayout): GridDimensions {
 function sanitizeGridDimensions(grid?: Partial<GridDimensions>, layout?: GridLayout): GridDimensions {
   const legacy = getLegacyGridDimensions(layout);
   return {
-    rows: clampGridValue(grid?.rows ?? legacy.rows),
-    columns: clampGridValue(grid?.columns ?? legacy.columns),
+    rows: clampGridValue(grid?.rows ?? legacy.rows, MAX_GRID_ROWS),
+    columns: clampGridValue(grid?.columns ?? legacy.columns, MAX_GRID_COLUMNS),
   };
 }
 
@@ -1261,7 +1262,7 @@ function PostEditor({
             rows={2}
             className={inputClass + " resize-none"}
           />
-          <div className={`border rounded-xl p-4 flex flex-col min-h-80 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
+          <div className={`border rounded-xl p-4 pb-24 flex flex-col min-h-80 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
             <p className={`text-sm font-semibold font-['Source_Sans_3'] mb-3 ${dark ? "text-gray-400" : "text-gray-500"}`}>Content Blocks</p>
             {blocks.map((block, idx) => (
               <BlockEditor
@@ -1524,11 +1525,13 @@ function PostsList({
   onEdit,
   dark,
   refreshKey,
+  onChanged,
 }: {
   onEdit: (id: number) => void;
   onNew: () => void;
   dark: boolean;
   refreshKey?: number;
+  onChanged?: () => void;
 }) {
   const PAGE_SIZE = 10;
   const [data, setData] = useState<{ items: PostItem[]; total: number; page: number; limit: number; totalPages: number } | null>(null);
@@ -1574,6 +1577,7 @@ function PostsList({
     try {
       await API.unlistPost(id);
       await loadPosts();
+      onChanged?.();
       toast.success("Post unlisted (saved as draft)");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -1588,6 +1592,7 @@ function PostsList({
     try {
       await API.deletePost(id);
       await loadPosts();
+      onChanged?.();
       toast.success("Post deleted");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -2071,6 +2076,7 @@ export default function AdminPanel() {
   const [postsRefreshKey, setPostsRefreshKey] = useState(0);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [personalization, setPersonalization] = useState<AdminPersonalization>(DEFAULT_PERSONALIZATION);
   const [savingPersonalization, setSavingPersonalization] = useState(false);
   const [uploadingPersonalizationImage, setUploadingPersonalizationImage] = useState<null | "profile" | "inspiration">(null);
@@ -2085,10 +2091,15 @@ export default function AdminPanel() {
   }, []);
 
   useEffect(() => {
+    if (!user) {
+      setStats(null);
+      return;
+    }
+
     API.getStats()
       .then(setStats)
       .catch(() => {/* stats are non-critical; UI shows "—" on failure */});
-  }, [postsRefreshKey]);
+  }, [user, dashboardRefreshKey]);
 
   useEffect(() => {
     if (!user) return;
@@ -2096,6 +2107,24 @@ export default function AdminPanel() {
       .then((data) => setPersonalization({ ...DEFAULT_PERSONALIZATION, ...data }))
       .catch(() => {/* personalization falls back locally */});
   }, [user]);
+
+  const refreshPostsData = useCallback(() => {
+    setPostsRefreshKey((key) => key + 1);
+  }, []);
+
+  const refreshCommentsData = useCallback(() => {
+    setCommentsRefreshKey((key) => key + 1);
+  }, []);
+
+  const refreshDashboardData = useCallback(() => {
+    setDashboardRefreshKey((key) => key + 1);
+  }, []);
+
+  const refreshAllAdminData = useCallback(() => {
+    refreshPostsData();
+    refreshCommentsData();
+    refreshDashboardData();
+  }, [refreshCommentsData, refreshDashboardData, refreshPostsData]);
 
   const savePersonalization = async () => {
     setSavingPersonalization(true);
@@ -2132,6 +2161,7 @@ export default function AdminPanel() {
   const displayName = personalization.displayName?.trim() || user?.name || "Sharon Danley";
   const displayRole = personalization.role?.trim() || DEFAULT_PERSONALIZATION.role;
   const quoteAuthor = personalization.inspirationQuoteAuthor?.trim() || DEFAULT_PERSONALIZATION.inspirationQuoteAuthor;
+  const displaySidebarEmail = personalization.email?.trim() || user?.email || DEFAULT_PERSONALIZATION.email;
 
   const logout = async () => {
     try { await API.logout(); } finally { setUser(null); }
@@ -2283,7 +2313,7 @@ export default function AdminPanel() {
             />
             <div className="min-w-0">
               <p className={`text-sm font-bold truncate ${textPrimary}`}>{displayName}</p>
-              <p className={`text-xs truncate ${textMuted}`}>{user.email}</p>
+              <p className={`text-xs truncate ${textMuted}`}>{displaySidebarEmail}</p>
             </div>
           </div>
 
@@ -2382,7 +2412,7 @@ export default function AdminPanel() {
                   View all →
                 </button>
               </div>
-              <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
+              <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} onChanged={refreshDashboardData} />
             </div>
             <div className={`rounded-xl border p-6 ${cardBg}`}>
               <div className="flex items-center justify-between mb-5">
@@ -2433,10 +2463,7 @@ export default function AdminPanel() {
             <div className="flex items-center justify-between mb-6">
               <h2 className={`text-3xl font-bold font-['Source_Sans_3'] ${textPrimary}`}>Comments</h2>
               <button
-                onClick={() => {
-                  setCommentsRefreshKey((k) => k + 1);
-                  setPostsRefreshKey((k) => k + 1);
-                }}
+                onClick={refreshAllAdminData}
                 className={`flex items-center gap-2 px-5 py-3 text-base font-bold font-['Source_Sans_3'] rounded-lg transition-colors ${
                   dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"
                 }`}
@@ -2444,7 +2471,7 @@ export default function AdminPanel() {
                 Refresh
               </button>
             </div>
-            <CommentsModerationTable dark={dark} refreshKey={commentsRefreshKey} onChanged={() => setPostsRefreshKey((k) => k + 1)} />
+            <CommentsModerationTable dark={dark} refreshKey={commentsRefreshKey} onChanged={refreshDashboardData} />
           </div>
         )}
 
@@ -2593,7 +2620,10 @@ export default function AdminPanel() {
             <PostEditor
               onBack={() => setView("posts")}
               dark={dark}
-              onSaved={() => setPostsRefreshKey((k) => k + 1)}
+              onSaved={() => {
+                refreshPostsData();
+                refreshDashboardData();
+              }}
             />
           </div>
         )}
@@ -2605,7 +2635,10 @@ export default function AdminPanel() {
               postId={editingPostId}
               onBack={() => setView("posts")}
               dark={dark}
-              onSaved={() => setPostsRefreshKey((k) => k + 1)}
+              onSaved={() => {
+                refreshPostsData();
+                refreshDashboardData();
+              }}
             />
           </div>
         )}

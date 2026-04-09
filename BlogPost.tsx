@@ -27,8 +27,8 @@ function getLegacyGridDimensions(layout?: string) {
 function sanitizeGrid(block: BlogBlock) {
   const legacy = getLegacyGridDimensions(block.layout);
   return {
-    rows: Math.max(1, Math.min(10, Math.round(block.grid?.rows ?? legacy.rows))),
-    columns: Math.max(1, Math.min(10, Math.round(block.grid?.columns ?? legacy.columns))),
+    rows: Math.max(1, Math.min(6, Math.round(block.grid?.rows ?? legacy.rows))),
+    columns: Math.max(1, Math.min(3, Math.round(block.grid?.columns ?? legacy.columns))),
   };
 }
 

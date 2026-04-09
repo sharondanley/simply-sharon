@@ -26,30 +26,7 @@ const sourceSans24 = {
 } as const;
 
 export function SiteFooter() {
-  const [email, setEmail] = useState(DEFAULT_EMAIL);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch("/api/site/personalization", { credentials: "same-origin" })
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error("Failed to load personalization");
-        return data as { email?: string | null };
-      })
-      .then((data) => {
-        const nextEmail = data.email?.trim() || DEFAULT_EMAIL;
-        if (!cancelled) setEmail(nextEmail);
-      })
-      .catch(() => {
-        if (!cancelled) setEmail(DEFAULT_EMAIL);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  const email = DEFAULT_EMAIL;
   const emailHref = `mailto:${email}`;
 
   return (
