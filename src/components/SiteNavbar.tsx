@@ -103,7 +103,7 @@ export function SiteNavbar() {
                 key={label}
                 href={href}
                 style={{
-                  fontFamily: "Inter, sans-serif",
+                  fontFamily: "'Source Sans 3', 'Source Sans Pro', Helvetica, Arial, sans-serif",
                   fontWeight: 400,
                   fontSize: "26px",
                   lineHeight: "31px",

@@ -12,7 +12,7 @@ async function main() {
 
   const email = process.env.TEST_ADMIN_EMAIL || 'admin@example.com';
   const password = process.env.TEST_ADMIN_PASSWORD || 'Admin123!';
-  const displayName = process.env.TEST_ADMIN_NAME || 'Test Admin';
+  const displayName = process.env.TEST_ADMIN_NAME || 'Sharon Danley';
 
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -59,6 +59,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Failed to seed test admin:', err.message);
+  console.error('Failed to seed admin:', err.message);
   process.exit(1);
 });

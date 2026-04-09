@@ -33,17 +33,26 @@ type PostItem = {
   subtitle?: string | null;
   thumbnailUrl?: string | null;
   topic?: string | null;
-  episode?: number | null;
+  readUrl?: string | null;
+  listenUrl?: string | null;
+  watchUrl?: string | null;
+  showReadButton?: boolean;
+  showListenButton?: boolean;
+  showWatchButton?: boolean;
   publishedAt?: Date | string | null;
   createdAt?: Date | string | null;
 };
 
 type CreatePostInput = {
   title: string;
-  subtitle?: string;
   summary?: string;
   topic?: string;
-  episode?: number;
+  readUrl?: string;
+  listenUrl?: string;
+  watchUrl?: string;
+  showReadButton: boolean;
+  showListenButton: boolean;
+  showWatchButton: boolean;
   hashtags: string[];
   blocks: Block[];
   thumbnailUrl?: string;
@@ -58,6 +67,20 @@ type PostDetail = PostItem & {
   authorName?: string | null;
 };
 
+type GridCellContentType = "paragraph" | "image" | "thumbnail";
+
+type GridLayout = "1x3" | "3x3";
+
+type GridCell = {
+  id: string;
+  contentType: GridCellContentType;
+  content?: string;
+  url?: string;
+  caption?: string;
+};
+
+type PostActionKey = "read" | "listen" | "watch";
+
 type CommentItem = {
   id: number;
   postId: number;
@@ -68,6 +91,7 @@ type CommentItem = {
   likesCount?: number;
   heartsCount?: number;
   isVerifiedAuthor?: number;
+  status?: string;
   postTitle: string;
   postSlug: string;
 };
@@ -135,12 +159,14 @@ const API = {
     limit: number,
     search = "",
     status: "all" | "published" | "draft" = "all",
-    date = ""
+    date = "",
+    sort = ""
   ): Promise<{ items: PostItem[]; total: number; page: number; limit: number; totalPages: number }> {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (search.trim()) params.set("search", search.trim());
     if (status !== "all") params.set("status", status);
     if (date.trim()) params.set("date", date.trim());
+    if (sort.trim()) params.set("sort", sort.trim());
     const r = await fetch(`/api/admin/posts?${params}`, {
       credentials: "same-origin",
     });
@@ -220,6 +246,15 @@ const API = {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to load comments");
     return data as { items: CommentItem[] };
+  },
+
+  async approveComment(id: number): Promise<void> {
+    const r = await fetch(`/api/admin/comments/${id}/approve`, {
+      method: "PATCH",
+      credentials: "same-origin",
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to approve comment");
   },
 
   async deleteComment(id: number): Promise<void> {
@@ -389,7 +424,7 @@ function normalizeThumbnailUrl(rawUrl: string) {
 
 // ─── Block types ──────────────────────────────────────────────────────────────
 
-type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider";
+type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid";
 
 type Block = {
   id: string;
@@ -397,10 +432,52 @@ type Block = {
   content?: string;
   url?: string;
   caption?: string;
+  layout?: GridLayout;
+  cells?: GridCell[];
 };
+
+const GRID_LAYOUT_OPTIONS: Array<{ value: GridLayout; label: string }> = [
+  { value: "1x3", label: "1 × 3" },
+  { value: "3x3", label: "3 × 3" },
+];
 
 function generateId() {
   return Math.random().toString(36).slice(2);
+}
+
+function getGridColumnCount(layout: GridLayout) {
+  return layout === "3x3" ? 3 : 3;
+}
+
+function getGridCellCount(layout: GridLayout) {
+  return layout === "3x3" ? 9 : 3;
+}
+
+function ensureGridCells(layout: GridLayout, cells?: GridCell[]) {
+  const count = getGridCellCount(layout);
+  return Array.from({ length: count }, (_, index) => {
+    const existing = cells?.[index];
+    return {
+      id: existing?.id || generateId(),
+      contentType: existing?.contentType || "paragraph",
+      content: existing?.content || "",
+      url: existing?.url || "",
+      caption: existing?.caption || "",
+    } satisfies GridCell;
+  });
+}
+
+function createBlock(type: BlockType): Block {
+  if (type === "customGrid") {
+    return {
+      id: generateId(),
+      type,
+      layout: "1x3",
+      cells: ensureGridCells("1x3"),
+    };
+  }
+
+  return { id: generateId(), type };
 }
 
 // ─── Rich-text toolbar ────────────────────────────────────────────────────────
@@ -556,6 +633,7 @@ function BlockIcon({ type }: { type: BlockType }) {
     image: <Image size={15} />,
     video: <Video size={15} />,
     divider: <span className="text-sm font-bold">—</span>,
+    customGrid: <SplitSquareHorizontal size={15} />,
   };
   return <>{icons[type]}</>;
 }
@@ -571,6 +649,42 @@ function BlockEditor({
       ? "border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-gray-400"
       : "border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:ring-black"
   }`;
+  const helperClass = `text-xs font-semibold uppercase tracking-[0.18em] ${dark ? "text-gray-500" : "text-gray-400"}`;
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const gridFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [uploadingCellId, setUploadingCellId] = useState<string | null>(null);
+
+  const handleBlockImageUpload = async (file?: File) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadImageFile(file);
+      onChange({ ...block, url });
+      toast.success("Image uploaded.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleGridCellUpload = async (cellId: string, file?: File) => {
+    if (!file) return;
+    setUploadingCellId(cellId);
+    try {
+      const url = await uploadImageFile(file);
+      onChange({
+        ...block,
+        cells: ensureGridCells(block.layout || "1x3", block.cells).map((cell) => cell.id === cellId ? { ...cell, url } : cell),
+      });
+      toast.success("Grid image uploaded.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setUploadingCellId(null);
+    }
+  };
 
   const renderInput = () => {
     if (block.type === "divider") {
@@ -579,6 +693,30 @@ function BlockEditor({
     if (block.type === "image" || block.type === "video") {
       return (
         <div className="flex flex-col gap-3">
+          {block.type === "image" && (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => imageFileInputRef.current?.click()}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${dark ? "border-gray-500 text-gray-200 hover:border-white hover:text-white" : "border-gray-300 text-gray-700 hover:border-black hover:text-black"}`}
+                >
+                  <Upload size={16} /> {uploadingImage ? "Uploading..." : "Upload from device"}
+                </button>
+                <span className={helperClass}>or paste an image URL</span>
+              </div>
+              <input
+                ref={imageFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  void handleBlockImageUpload(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          )}
           <input
             type="text"
             value={block.url || ""}
@@ -618,6 +756,99 @@ function BlockEditor({
               className={inputClass}
             />
           </label>
+        </div>
+      );
+    }
+    if (block.type === "customGrid") {
+      const layout = block.layout || "1x3";
+      const cells = ensureGridCells(layout, block.cells);
+      const columns = getGridColumnCount(layout);
+      return (
+        <div className="flex flex-col gap-4">
+          <div>
+            <span className={`block text-sm font-semibold mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Grid Layout</span>
+            <select
+              value={layout}
+              onChange={(e) => {
+                const nextLayout = e.target.value as GridLayout;
+                onChange({ ...block, layout: nextLayout, cells: ensureGridCells(nextLayout, cells) });
+              }}
+              className={inputClass}
+            >
+              {GRID_LAYOUT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+            {cells.map((cell, index) => (
+              <div key={cell.id} className={`rounded-2xl border p-4 flex flex-col gap-3 ${dark ? "border-gray-600 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`text-sm font-bold font-['Source_Sans_3'] ${dark ? "text-gray-200" : "text-gray-800"}`}>Cell {index + 1}</span>
+                  <select
+                    value={cell.contentType}
+                    onChange={(e) => onChange({
+                      ...block,
+                      cells: cells.map((existing) => existing.id === cell.id ? { ...existing, contentType: e.target.value as GridCellContentType, content: existing.content || "", url: existing.url || "", caption: existing.caption || "" } : existing),
+                    })}
+                    className={`px-3 py-2 border rounded-lg text-sm font-['Source_Sans_3'] ${dark ? "border-gray-500 bg-gray-700 text-gray-100" : "border-gray-300 bg-white text-gray-900"}`}
+                  >
+                    <option value="paragraph">Paragraph</option>
+                    <option value="image">Image</option>
+                    <option value="thumbnail">Thumbnail</option>
+                  </select>
+                </div>
+
+                {cell.contentType === "paragraph" ? (
+                  <textarea
+                    value={cell.content || ""}
+                    onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, content: e.target.value } : existing) })}
+                    placeholder="Write paragraph content for this cell..."
+                    rows={5}
+                    className={inputClass + " resize-y"}
+                  />
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => gridFileInputRefs.current[cell.id]?.click()}
+                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${dark ? "border-gray-500 text-gray-200 hover:border-white hover:text-white" : "border-gray-300 text-gray-700 hover:border-black hover:text-black"}`}
+                      >
+                        <Upload size={16} /> {uploadingCellId === cell.id ? "Uploading..." : "Upload image"}
+                      </button>
+                      <span className={helperClass}>or paste an image URL</span>
+                    </div>
+                    <input
+                      ref={(node) => { gridFileInputRefs.current[cell.id] = node; }}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        void handleGridCellUpload(cell.id, e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={cell.url || ""}
+                      onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, url: e.target.value } : existing) })}
+                      placeholder="Image URL..."
+                      className={inputClass}
+                    />
+                    <input
+                      type="text"
+                      value={cell.caption || ""}
+                      onChange={(e) => onChange({ ...block, cells: cells.map((existing) => existing.id === cell.id ? { ...existing, caption: e.target.value } : existing) })}
+                      placeholder={cell.contentType === "thumbnail" ? "Thumbnail label (optional)" : "Caption (optional)"}
+                      className={inputClass}
+                    />
+                    {cell.url ? <img src={cell.url} alt={cell.caption || ""} className={`w-full rounded-xl object-cover ${cell.contentType === "thumbnail" ? "h-28" : "max-h-56"}`} /> : null}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -662,6 +893,7 @@ function AddBlockMenu({ onAdd, dark }: { onAdd: (type: BlockType) => void; dark:
     { type: "quote", label: "Quote", icon: <Quote size={18} /> },
     { type: "image", label: "Image", icon: <Image size={18} /> },
     { type: "video", label: "Video", icon: <Video size={18} /> },
+    { type: "customGrid", label: "Custom Grid", icon: <SplitSquareHorizontal size={18} /> },
     { type: "divider", label: "Divider", icon: <span className="font-bold text-base">—</span> },
   ];
 
@@ -699,9 +931,9 @@ function AddBlockMenu({ onAdd, dark }: { onAdd: (type: BlockType) => void; dark:
 // ─── Post-preview panel ───────────────────────────────────────────────────────
 
 function PostPreview({
-  title, subtitle, thumbnailUrl, blocks, dark,
+  title, thumbnailUrl, blocks, dark,
 }: {
-  title: string; subtitle: string; thumbnailUrl: string; blocks: Block[]; dark: boolean;
+  title: string; thumbnailUrl: string; blocks: Block[]; dark: boolean;
 }) {
   const panelBg = dark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200";
   const titleColor = dark ? "text-white" : "text-gray-900";
@@ -721,18 +953,48 @@ function PostPreview({
         );
       case "quote":
         return (
-          <div key={block.id} className="my-5">
+          <div key={block.id} className={`my-5 rounded-[28px] px-8 py-10 text-center ${dark ? "bg-gray-800" : "bg-gray-200"}`}>
             <blockquote
-              className={`text-xl italic border-l-4 pl-5 font-['Source_Sans_3'] ${dark ? "border-gray-500 text-gray-300" : "border-gray-400 text-gray-700"}`}
+              className={`text-2xl font-bold leading-relaxed font-['Source_Sans_3'] ${dark ? "text-white" : "text-black"}`}
               dangerouslySetInnerHTML={{ __html: block.content || "<em>Quote</em>" }}
             />
             {block.caption && (
-              <div className={`mt-3 pl-7 text-3xl leading-none font-['Italianno'] ${dark ? "text-gray-200" : "text-gray-800"}`}>
-                — {block.caption}
+              <div className={`mt-5 pr-4 text-right text-3xl leading-none font-['Italianno'] ${dark ? "text-gray-200" : "text-gray-800"}`}>
+                {block.caption}
               </div>
             )}
           </div>
         );
+      case "customGrid": {
+        const layout = block.layout || "1x3";
+        const cells = ensureGridCells(layout, block.cells);
+        const columns = getGridColumnCount(layout);
+        return (
+          <div key={block.id} className="my-6 grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+            {cells.map((cell) => (
+              <div key={cell.id} className={`min-h-36 rounded-2xl border p-4 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+                {cell.contentType === "paragraph" && (
+                  <div
+                    className={`text-base leading-relaxed font-['Source_Sans_3'] ${bodyColor}`}
+                    dangerouslySetInnerHTML={{ __html: cell.content || "<em>Paragraph cell</em>" }}
+                  />
+                )}
+                {(cell.contentType === "image" || cell.contentType === "thumbnail") && cell.url ? (
+                  <div className="flex h-full flex-col gap-2">
+                    <img src={cell.url} alt={cell.caption || "Grid image"} className={`w-full rounded-xl object-cover ${cell.contentType === "thumbnail" ? "h-32" : "min-h-[180px] max-h-72"}`} />
+                    {cell.caption ? <span className={`text-sm font-['Source_Sans_3'] ${subColor}`}>{cell.caption}</span> : null}
+                  </div>
+                ) : null}
+                {(cell.contentType === "image" || cell.contentType === "thumbnail") && !cell.url ? (
+                  <div className={`flex min-h-28 items-center justify-center rounded-xl ${dark ? "bg-gray-700 text-gray-500" : "bg-white text-gray-400"}`}>
+                    <Image size={28} />
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        );
+      }
       case "image":
         return block.url ? (
           <figure key={block.id} className="my-5">
@@ -774,9 +1036,6 @@ function PostPreview({
       <h1 className={`text-4xl font-bold font-['Source_Sans_3'] leading-tight mb-3 ${titleColor}`}>
         {title || <span className={dark ? "text-gray-600" : "text-gray-300"}>Post title will appear here…</span>}
       </h1>
-      {subtitle && (
-        <p className={`text-xl mb-5 font-['Source_Sans_3'] ${subColor}`}>{subtitle}</p>
-      )}
       <div className={`border-t pt-5 ${dividerColor}`}>
         {blocks.map(renderBlock)}
         {blocks.length === 0 && (
@@ -803,20 +1062,47 @@ function PostEditor({
   onSaved?: () => void;
 }) {
   const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
   const [summary, setSummary] = useState("");
   const [topic, setTopic] = useState("");
-  const [episode, setEpisode] = useState("");
+  const [readUrl, setReadUrl] = useState("");
+  const [listenUrl, setListenUrl] = useState("");
+  const [watchUrl, setWatchUrl] = useState("");
+  const [showReadButton, setShowReadButton] = useState(true);
+  const [showListenButton, setShowListenButton] = useState(true);
+  const [showWatchButton, setShowWatchButton] = useState(true);
   const [hashtags, setHashtags] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [blocks, setBlocks] = useState<Block[]>([{ id: generateId(), type: "paragraph", content: "" }]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [loadingPost, setLoadingPost] = useState(Boolean(postId));
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    API.listPosts(1, 100, "", "all", "", "category")
+      .then((result) => {
+        if (cancelled) return;
+        const categories = Array.from(new Set((result.items || [])
+          .map((item) => (item.topic || "").trim())
+          .filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b));
+        setCategoryOptions(categories);
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!postId) {
@@ -831,14 +1117,18 @@ function PostEditor({
       .then((post) => {
         if (cancelled) return;
         setTitle(post.title || "");
-        setSubtitle(post.subtitle || "");
         setSummary(post.summary || "");
         setTopic(post.topic || "");
-        setEpisode(post.episode ? String(post.episode) : "");
+        setReadUrl(post.readUrl || "");
+        setListenUrl(post.listenUrl || "");
+        setWatchUrl(post.watchUrl || "");
+        setShowReadButton(post.showReadButton !== false);
+        setShowListenButton(post.showListenButton !== false);
+        setShowWatchButton(post.showWatchButton !== false);
         setHashtags((post.hashtags || []).join(", "));
         setThumbnailUrl(post.thumbnailUrl || "");
         setThumbnailPreview(post.thumbnailUrl || "");
-        setBlocks(post.blocks?.length ? post.blocks : [{ id: generateId(), type: "paragraph", content: "" }]);
+        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? { ...block, layout: block.layout || "1x3", cells: ensureGridCells(block.layout || "1x3", block.cells) } : block) : [{ id: generateId(), type: "paragraph", content: "" }]);
         setPublished(Boolean(post.published));
       })
       .catch((err: unknown) => {
@@ -881,7 +1171,7 @@ function PostEditor({
     setThumbnailUrl(normalized);
     setThumbnailPreview(normalized);
   };
-  const addBlock = (type: BlockType) => setBlocks((prev) => [...prev, { id: generateId(), type }]);
+  const addBlock = (type: BlockType) => setBlocks((prev) => [...prev, createBlock(type)]);
   const updateBlock = (id: string, updated: Block) => setBlocks((prev) => prev.map((b) => (b.id === id ? updated : b)));
   const deleteBlock = (id: string) => setBlocks((prev) => prev.filter((b) => b.id !== id));
   const moveBlock = (id: string, direction: "up" | "down") => {
@@ -903,10 +1193,14 @@ function PostEditor({
     try {
       const payload = {
         title: title.trim(),
-        subtitle: subtitle.trim() || undefined,
         summary: summary.trim() || undefined,
         topic: topic.trim() || undefined,
-        episode: episode ? parseInt(episode) : undefined,
+        readUrl: readUrl.trim() || undefined,
+        listenUrl: listenUrl.trim() || undefined,
+        watchUrl: watchUrl.trim() || undefined,
+        showReadButton,
+        showListenButton,
+        showWatchButton,
         hashtags: hashtagArray,
         thumbnailUrl: thumbnailUrl || undefined,
         blocks,
@@ -1002,15 +1296,7 @@ function PostEditor({
               dark ? "border-gray-600 text-white placeholder-gray-600 focus:border-gray-400" : "border-gray-200 text-gray-900 placeholder-gray-300 focus:border-black"
             }`}
           />
-          <input
-            type="text"
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Subtitle (optional)…"
-            className={`w-full px-4 py-2 text-xl font-['Source_Sans_3'] border-b focus:outline-none bg-transparent transition-colors ${
-              dark ? "border-gray-700 text-gray-300 placeholder-gray-600 focus:border-gray-500" : "border-gray-100 text-gray-700 placeholder-gray-300 focus:border-gray-300"
-            }`}
-          />
+
           <textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -1041,7 +1327,6 @@ function PostEditor({
         {showPreview ? (
           <PostPreview
             title={title}
-            subtitle={subtitle}
             thumbnailUrl={thumbnailPreview}
             blocks={blocks}
             dark={dark}
@@ -1087,14 +1372,113 @@ function PostEditor({
             {/* Metadata */}
             <div className={cardClass}>
               <h3 className={cardTitleClass}><Settings size={16} /> Post Settings</h3>
-              <div>
+              <div className="relative">
                 <label className={labelClass}>Topic / Category</label>
-                <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Beauty, Poise, Mindset" className={inputClass} />
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(e) => {
+                    setTopic(e.target.value);
+                    setCategoryMenuOpen(true);
+                  }}
+                  onFocus={() => setCategoryMenuOpen(true)}
+                  onBlur={() => window.setTimeout(() => setCategoryMenuOpen(false), 120)}
+                  placeholder="Search existing categories or type a new one"
+                  className={inputClass}
+                />
+                {categoryMenuOpen && (
+                  <div className={`absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border ${dark ? "border-gray-600 bg-gray-800" : "border-gray-200 bg-white"}`}>
+                    {categoryOptions.filter((category) => {
+                      const query = topic.trim().toLowerCase();
+                      return !query || category.toLowerCase().includes(query);
+                    }).slice(0, 8).map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setTopic(category);
+                          setCategoryMenuOpen(false);
+                        }}
+                        className={`block w-full px-4 py-3 text-left text-base font-['Source_Sans_3'] transition-colors ${dark ? "text-gray-100 hover:bg-gray-700" : "text-gray-900 hover:bg-gray-50"}`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                    {topic.trim() && !categoryOptions.some((category) => category.toLowerCase() === topic.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setTopic(topic.trim());
+                          setCategoryMenuOpen(false);
+                        }}
+                        className={`block w-full border-t px-4 py-3 text-left text-base font-['Source_Sans_3'] transition-colors ${dark ? "border-gray-700 text-gray-300 hover:bg-gray-700" : "border-gray-100 text-gray-700 hover:bg-gray-50"}`}
+                      >
+                        Create "{topic.trim()}"
+                      </button>
+                    )}
+                    {!categoryOptions.filter((category) => {
+                      const query = topic.trim().toLowerCase();
+                      return !query || category.toLowerCase().includes(query);
+                    }).length && !topic.trim() && (
+                      <div className={`px-4 py-3 text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-500"}`}>
+                        No saved categories yet.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className={labelClass}>Episode #</label>
-                <input type="number" value={episode} onChange={(e) => setEpisode(e.target.value)} placeholder="e.g. 5" min="1" className={inputClass} />
-              </div>
+              {([
+                {
+                  key: "read" as PostActionKey,
+                  label: "Read",
+                  value: readUrl,
+                  setValue: setReadUrl,
+                  visible: showReadButton,
+                  setVisible: setShowReadButton,
+                  placeholder: "Leave blank to use the article page",
+                },
+                {
+                  key: "listen" as PostActionKey,
+                  label: "Listen",
+                  value: listenUrl,
+                  setValue: setListenUrl,
+                  visible: showListenButton,
+                  setVisible: setShowListenButton,
+                  placeholder: "Paste an audio, podcast, or playlist URL",
+                },
+                {
+                  key: "watch" as PostActionKey,
+                  label: "Watch",
+                  value: watchUrl,
+                  setValue: setWatchUrl,
+                  visible: showWatchButton,
+                  setVisible: setShowWatchButton,
+                  placeholder: "Paste a video URL",
+                },
+              ]).map((field) => (
+                <div key={field.key}>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <label className={labelClass} style={{ marginBottom: 0 }}>{field.label}</label>
+                    <button
+                      type="button"
+                      onClick={() => field.setVisible((current: boolean) => !current)}
+                      title={field.visible ? `Hide ${field.label} button` : `Show ${field.label} button`}
+                      className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border transition-colors ${dark ? "border-gray-600 text-gray-300 hover:border-white hover:text-white" : "border-gray-300 text-gray-600 hover:border-black hover:text-black"}`}
+                    >
+                      {field.visible ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={field.value}
+                    onChange={(e) => field.setValue(e.target.value)}
+                    placeholder={field.placeholder}
+                    className={inputClass}
+                  />
+                </div>
+              ))}
               <div>
                 <label className={labelClass}>Hashtags (comma-separated)</label>
                 <input type="text" value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#GrayHair, #BeautyTips" className={inputClass} />
@@ -1188,20 +1572,21 @@ function PostsList({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [dateFilter, setDateFilter] = useState("");
+  const [sortFilter, setSortFilter] = useState<"recent" | "category">("recent");
   const [page, setPage] = useState(1);
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
   const loadPosts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await API.listPosts(page, PAGE_SIZE, search, statusFilter, dateFilter);
+      const result = await API.listPosts(page, PAGE_SIZE, search, statusFilter, dateFilter, sortFilter === "category" ? "category" : "");
       setData(result);
     } catch {
       toast.error("Failed to load posts");
     } finally {
       setIsLoading(false);
     }
-  }, [page, search, statusFilter, dateFilter]);
+  }, [page, search, statusFilter, dateFilter, sortFilter]);
 
   useEffect(() => {
     const tid = window.setTimeout(() => {
@@ -1212,7 +1597,7 @@ function PostsList({
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, dateFilter]);
+  }, [search, statusFilter, dateFilter, sortFilter]);
 
   const confirmPost = confirmId !== null
     ? data?.items.find((p) => p.id === confirmId) ?? null
@@ -1271,7 +1656,7 @@ function PostsList({
         />
       )}
 
-      <div className="mb-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_auto] gap-3 items-center">
+      <div className="mb-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_220px_220px_220px_auto] gap-3 items-center">
         <div className="relative">
           <Search size={18} className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${dark ? "text-gray-400" : "text-gray-500"}`} />
           <input
@@ -1302,12 +1687,23 @@ function PostsList({
           aria-label="Filter posts by date"
         />
 
+        <select
+          value={sortFilter}
+          onChange={(e) => setSortFilter(e.target.value as "recent" | "category")}
+          className={inputClass}
+          aria-label="Sort posts"
+        >
+          <option value="recent">Sort by newest</option>
+          <option value="category">Sort by category</option>
+        </select>
+
         <button
           type="button"
           onClick={() => {
             setSearch("");
             setStatusFilter("all");
             setDateFilter("");
+            setSortFilter("recent");
           }}
           className={`px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${buttonClass}`}
         >
@@ -1446,6 +1842,7 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
   const [items, setItems] = useState<CommentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [pendingActionId, setPendingActionId] = useState<number | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -1467,9 +1864,25 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
 
   const parentAuthorById = new Map(items.map((item) => [item.id, item.authorName]));
 
+  const approveComment = async (id: number) => {
+    setPendingActionId(id);
+    try {
+      await API.approveComment(id);
+      setItems((prev) => prev.map((item) => item.id === id ? { ...item, status: "Posted" } : item));
+      toast.success("Comment approved");
+      onChanged?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to approve comment";
+      toast.error(msg);
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
   const deleteComment = async (id: number) => {
     const next = window.confirm("Delete this comment permanently?");
     if (!next) return;
+    setPendingActionId(id);
     try {
       await API.deleteComment(id);
       setItems((prev) => prev.filter((item) => item.id !== id));
@@ -1478,6 +1891,8 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to delete comment";
       toast.error(msg);
+    } finally {
+      setPendingActionId(null);
     }
   };
 
@@ -1539,6 +1954,9 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
                   <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold font-['Source_Sans_3'] ${item.parentId ? (dark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700') : (dark ? 'bg-white/10 text-white' : 'bg-black text-white')}`}>
                     {item.parentId ? `Reply to ${parentAuthorById.get(item.parentId) || 'original comment'}` : 'Top-level comment'}
                   </span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold font-['Source_Sans_3'] ${String(item.status || '').toLowerCase() === 'pending approval' ? (dark ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-100 text-amber-800') : (dark ? 'bg-emerald-900/30 text-emerald-200' : 'bg-emerald-100 text-emerald-800')}`}>
+                    {item.status || 'Posted'}
+                  </span>
                   <span className={`text-xs font-['Source_Sans_3'] ${textMuted}`}>
                     Likes {Number(item.likesCount || 0)} · Hearts {Number(item.heartsCount || 0)}
                   </span>
@@ -1549,7 +1967,20 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
               </div>
               <div className={`font-['Source_Sans_3'] ${textMuted}`}>{formatDateTime(item.createdAt)}</div>
               <div className={`font-['Source_Sans_3'] ${textMain}`}>{item.postTitle}</div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {String(item.status || '').toLowerCase() === 'pending approval' && (
+                  <button
+                    onClick={() => { void approveComment(item.id); }}
+                    disabled={pendingActionId === item.id}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded text-sm font-bold font-['Source_Sans_3'] border transition-colors disabled:opacity-60 ${
+                      dark
+                        ? "border-emerald-600 text-emerald-200 hover:bg-emerald-900/30"
+                        : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    }`}
+                  >
+                    <Eye size={14} /> {pendingActionId === item.id ? 'Working…' : 'Approve'}
+                  </button>
+                )}
                 <a
                   href={`/blogcast/${item.postSlug}#comment-${item.id}`}
                   target="_blank"
@@ -1564,7 +1995,8 @@ function CommentsModerationTable({ dark, refreshKey, onChanged }: { dark: boolea
                 </a>
                 <button
                   onClick={() => { void deleteComment(item.id); }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded text-sm font-bold font-['Source_Sans_3'] border transition-colors ${
+                  disabled={pendingActionId === item.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded text-sm font-bold font-['Source_Sans_3'] border transition-colors disabled:opacity-60 ${
                     dark
                       ? "border-red-700 text-red-300 hover:bg-red-900/30"
                       : "border-red-300 text-red-600 hover:bg-red-50"
@@ -1605,53 +2037,56 @@ function AdminLoginForm({ onLoginSuccess }: { onLoginSuccess: (user: AuthUser) =
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
       <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full">
         <div className="text-center mb-8">
           <h1 className="text-6xl font-normal font-['Italianno'] text-black mb-2">Simply Sharon</h1>
-          <p className="text-gray-600 font-['Source_Sans_3'] text-base">Admin Dashboard</p>
+          <p className="text-gray-600 text-base" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Admin Dashboard</p>
         </div>
         <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
           <Settings size={30} className="text-white" />
         </div>
-        <h2 className="text-2xl font-bold font-['Source_Sans_3'] text-black mb-6 text-center">Sign In</h2>
+        <h2 className="text-2xl font-bold text-black mb-6 text-center" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Sign In</h2>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-base font-semibold font-['Source_Sans_3'] text-gray-800 mb-2">Email or Username</label>
+            <label className="block text-base font-semibold text-gray-800 mb-2" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Email or Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               required
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-['Source_Sans_3'] text-base focus:outline-none focus:border-black transition-colors"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:border-black transition-colors"
+              style={{ fontFamily: "Helvetica, Arial, sans-serif" }}
               placeholder="Enter email or username"
             />
           </div>
           <div>
-            <label className="block text-base font-semibold font-['Source_Sans_3'] text-gray-800 mb-2">Password</label>
+            <label className="block text-base font-semibold text-gray-800 mb-2" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-['Source_Sans_3'] text-base focus:outline-none focus:border-black transition-colors"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:border-black transition-colors"
+              style={{ fontFamily: "Helvetica, Arial, sans-serif" }}
               placeholder="Enter password"
             />
           </div>
-          {error && <p className="text-red-600 text-base font-['Source_Sans_3'] text-center font-semibold">{error}</p>}
+          {error && <p className="text-red-600 text-base text-center font-semibold" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>{error}</p>}
           <button
             type="submit"
             disabled={pending}
-            className="w-full py-3.5 bg-black text-white text-base font-bold font-['Source_Sans_3'] rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 bg-black text-white text-base font-bold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ fontFamily: "Helvetica, Arial, sans-serif" }}
           >
             {pending ? "Signing in…" : "Sign In"}
           </button>
         </form>
         {/* Replace href with your site's home URL */}
         <a href="/">
-          <p className="mt-5 text-base text-gray-500 hover:text-black cursor-pointer font-['Source_Sans_3'] transition-colors text-center">
+          <p className="mt-5 text-base text-gray-500 hover:text-black cursor-pointer transition-colors text-center" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
             ← Back to website
           </p>
         </a>
@@ -1947,13 +2382,13 @@ export default function AdminPanel() {
                   </button>
                 </div>
               </div>
-              <div className={`px-8 py-8 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
-                <p className={`text-xs uppercase tracking-[0.24em] mb-3 text-center ${textMuted}`}>Quote of the Week</p>
-                <div className="flex flex-col items-center text-center gap-3">
-                  <blockquote className={`max-w-4xl text-[1.5rem] md:text-[1.95rem] leading-[1.35] font-semibold ${textPrimary}`}>
+              <div className={`px-8 py-5 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
+                <p className={`text-[10px] uppercase tracking-[0.28em] mb-2 text-center ${textMuted}`}>Quote of the Week</p>
+                <div className="flex flex-col items-center text-center gap-2">
+                  <blockquote className={`max-w-3xl text-[1.1rem] md:text-[1.35rem] leading-[1.45] font-semibold ${textPrimary}`}>
                     “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
                   </blockquote>
-                  <div className="admin-script text-[2.25rem] md:text-[2.9rem] leading-none text-black dark:text-white">
+                  <div className="admin-script text-[1.8rem] md:text-[2.2rem] leading-none text-black dark:text-white">
                     — {quoteAuthor}
                   </div>
                 </div>
@@ -1977,6 +2412,15 @@ export default function AdminPanel() {
             </div>
             <div className={`rounded-xl border p-6 mb-8 ${cardBg}`}>
               <div className="flex items-center justify-between mb-5">
+                <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Recent Posts</h3>
+                <button onClick={() => setView("posts")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
+                  View all →
+                </button>
+              </div>
+              <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
+            </div>
+            <div className={`rounded-xl border p-6 ${cardBg}`}>
+              <div className="flex items-center justify-between mb-5">
                 <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Top Posts by Comment Count</h3>
                 <button onClick={() => setView("comments")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
                   Moderate comments →
@@ -1998,15 +2442,6 @@ export default function AdminPanel() {
                   ))}
                 </div>
               )}
-            </div>
-            <div className={`rounded-xl border p-6 ${cardBg}`}>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Recent Posts</h3>
-                <button onClick={() => setView("posts")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
-                  View all →
-                </button>
-              </div>
-              <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} />
             </div>
           </div>
         )}

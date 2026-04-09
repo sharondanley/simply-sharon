@@ -11,7 +11,7 @@ const ASSETS = {
   breadcrumbIcon:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/111-551_b98a981b.webp",
   sharonPortrait:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/114-683_ca65ab48.webp",
   videoThumbnail:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-7_7db05980.webp",
-  heartEmoji:      "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-21_0db020ef.webp",
+  heartEmoji:      "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-21_1dd24f05.webp",
   footerBg:        "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-36_270c59a1.webp",
   emailIcon:       "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-44_39e13744.webp",
   facebookIcon:    "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-45_0b4c84e4.webp",
@@ -19,6 +19,25 @@ const ASSETS = {
   caricatureLogo:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/116-73_1761bbb8.webp",
   commentSection:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/124-76_ee23175d.webp",
 };
+
+function getGridColumnCount(layout?: string) {
+  return layout === "3x3" ? 3 : 3;
+}
+
+function ensureGridCells(block: BlogBlock) {
+  const layout = block.layout === "3x3" ? "3x3" : "1x3";
+  const count = layout === "3x3" ? 9 : 3;
+  return Array.from({ length: count }, (_, index) => {
+    const existing = block.cells?.[index];
+    return {
+      id: existing?.id || `${block.id || "grid"}-${index}`,
+      contentType: existing?.contentType || "paragraph",
+      content: existing?.content || "",
+      url: existing?.url || "",
+      caption: existing?.caption || "",
+    };
+  });
+}
 
 function renderBlock(block: BlogBlock, index: number) {
   switch (block.type) {
@@ -31,18 +50,46 @@ function renderBlock(block: BlogBlock, index: number) {
     case "quote":
       return (
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px", display: "flex", flexDirection: "column", gap: "28px" }}>
-          <div style={{ alignSelf: "stretch", padding: "37px 0", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "43px" }}>
-            <div style={{ alignSelf: "stretch", padding: "10px" }}>
-              <div style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ alignSelf: "stretch", padding: "44px 52px 34px", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "center", gap: "28px" }}>
+            <div style={{ maxWidth: "1180px", textAlign: "center" }}>
+              <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
             </div>
             {block.caption && (
-              <div style={{ padding: "10px 47px" }}>
+              <div style={{ width: "100%", paddingRight: "74px", textAlign: "right" }}>
                 <span style={{ fontFamily: "Italianno", fontSize: "64px", lineHeight: "80px", color: "#000" }}>{block.caption}</span>
               </div>
             )}
           </div>
         </div>
       );
+    case "customGrid": {
+      const cells = ensureGridCells(block);
+      const columns = getGridColumnCount(block.layout);
+      return (
+        <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
+            {cells.map((cell) => (
+              <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", borderRadius: "20px", border: "1px solid #E5E5E5", background: cell.contentType === "paragraph" ? "#FAFAFA" : "#F5F5F5", padding: "24px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px" }}>
+                {cell.contentType === "paragraph" ? (
+                  <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "30px", lineHeight: "40px", color: "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
+                ) : cell.url ? (
+                  <>
+                    <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", objectFit: "cover", borderRadius: "16px" }} />
+                    {cell.caption ? (
+                      <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <div style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", borderRadius: "16px", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", color: "#6B7280" }}>
+                    {cell.contentType === "thumbnail" ? "Thumbnail" : "Image"}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     case "image":
       return block.url ? (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
@@ -231,13 +278,6 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                     {leadText}
                   </span>
                 </div>
-                {post.subtitle && (
-                  <div style={{ alignSelf: "stretch" }}>
-                    <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }}>
-                      {post.subtitle}
-                    </span>
-                  </div>
-                )}
               </div>
               <div style={{ alignSelf: "flex-start" }}>
                 <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block" }} />
@@ -248,8 +288,9 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
           {bodyBlocks.map(renderBlock)}
 
           <div style={{ width: "100%", padding: "10px 116px 0" }}>
-            <div style={{ paddingTop: "30px", display: "flex", justifyContent: "flex-start" }}>
-              <span style={{ fontFamily: "Italianno", fontSize: "82px", lineHeight: "1", color: "#000" }}>Sharon &lt;3</span>
+            <div style={{ paddingTop: "30px", display: "flex", alignItems: "flex-end", justifyContent: "flex-start", gap: "14px" }}>
+              <span style={{ fontFamily: "Italianno", fontSize: "82px", lineHeight: "1", color: "#000" }}>Sharon</span>
+              <img src={ASSETS.heartEmoji} alt="heart" style={{ width: "54px", height: "54px", objectFit: "contain", transform: "translateY(-10px)" }} />
             </div>
           </div>
 

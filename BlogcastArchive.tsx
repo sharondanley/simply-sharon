@@ -27,6 +27,7 @@ export default function BlogcastArchive() {
   const [search, setSearch] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  const [sortBy, setSortBy] = useState<"recent" | "category">("recent");
   const [posts, setPosts] = useState<ArchivePost[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -34,14 +35,14 @@ export default function BlogcastArchive() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedMonth, selectedYear]);
+  }, [search, selectedMonth, selectedYear, sortBy]);
 
   useEffect(() => {
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       setLoading(true);
       setError("");
-      fetchBlogcastPosts({ page, limit: 4, search, year: selectedYear, month: selectedMonth })
+      fetchBlogcastPosts({ page, limit: 4, search, year: selectedYear, month: selectedMonth, sort: sortBy })
         .then((data) => {
           if (cancelled) return;
           setPosts(data.items);
@@ -62,7 +63,7 @@ export default function BlogcastArchive() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [page, search, selectedMonth, selectedYear]);
+  }, [page, search, selectedMonth, selectedYear, sortBy]);
 
   const pageNumbers = useMemo(() => {
     if (totalPages <= 3) {
@@ -220,6 +221,12 @@ export default function BlogcastArchive() {
                       ))}
                     </select>
                   </div>
+                  <div className="blogcast-filter-button">
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "recent" | "category")} aria-label="Sort posts">
+                      <option value="recent">Sort by Newest</option>
+                      <option value="category">Sort by Category</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -261,19 +268,22 @@ export default function BlogcastArchive() {
                         <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 400, color: "#000", lineHeight: "46px" }}>{stripHtml(post.summary) || post.subtitle || "Read the latest thoughts from the Blogcast archive."}</span>
                       </div>
                     </div>
-                    <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108 }}>
+                    <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108, flexWrap: "wrap" as const }}>
                       {[
-                        { icon: A.readBtn, label: "Read", w: 48, h: 48, r: 16, href: `/blog-post/${post.id}` },
-                        { icon: A.listenBtn, label: "Listen", w: 43, h: 42, r: 0, href: `https://www.youtube.com/@SimplySharonTips/featured` },
-                        { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: `https://www.youtube.com/@SimplySharonTips/featured` },
-                      ].map(({ icon, label, w, h, r, href }) => (
-                        <a key={label} href={href} target={label === "Read" ? undefined : "_blank"} rel={label === "Read" ? undefined : "noreferrer"} style={{ textDecoration: "none" }}>
-                          <div className="blogcast-action-pill">
-                            <img src={icon} alt={label} style={{ width: w, height: h, borderRadius: r }} />
-                            <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>{label}</span>
-                          </div>
-                        </a>
-                      ))}
+                        { icon: A.readBtn, label: "Read", w: 48, h: 48, r: 16, href: post.readUrl || `/blog-post/${post.id}`, visible: post.showReadButton !== false },
+                        { icon: A.listenBtn, label: "Listen", w: 43, h: 42, r: 0, href: post.listenUrl, visible: post.showListenButton !== false && Boolean(post.listenUrl) },
+                        { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: post.watchUrl, visible: post.showWatchButton !== false && Boolean(post.watchUrl) },
+                      ].filter((action) => action.visible && action.href).map(({ icon, label, w, h, r, href }) => {
+                        const isRead = label === "Read" && !String(href).startsWith("http");
+                        return (
+                          <a key={label} href={href} target={isRead ? undefined : "_blank"} rel={isRead ? undefined : "noreferrer"} style={{ textDecoration: "none" }}>
+                            <div className="blogcast-action-pill">
+                              <img src={icon} alt={label} style={{ width: w, height: h, borderRadius: r }} />
+                              <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>{label}</span>
+                            </div>
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

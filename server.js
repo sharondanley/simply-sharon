@@ -106,14 +106,29 @@ function hydratePostRecord(row) {
         thumbnailUrl: row.thumbnailUrl || null,
         topic: row.topic || null,
         episode: row.episode || null,
+        readUrl: row.readUrl || null,
+        listenUrl: row.listenUrl || null,
+        watchUrl: row.watchUrl || null,
+        showReadButton: row.showReadButton !== undefined ? Boolean(row.showReadButton) : true,
+        showListenButton: row.showListenButton !== undefined ? Boolean(row.showListenButton) : true,
+        showWatchButton: row.showWatchButton !== undefined ? Boolean(row.showWatchButton) : true,
         publishedAt: row.publishedAt || null,
         createdAt: row.createdAt || null,
         updatedAt: row.updatedAt || null,
-        authorName: row.authorName || row.author || 'Simply Sharon',
+        authorName: row.authorName || row.author || 'Sharon Danley',
         hashtags: parseJsonArray(row.hashtags),
         blocks: parseContentBlocks(row.content),
         published: row.status ? row.status === 'published' : Boolean(row.publishedAt),
     };
+}
+
+async function ensurePostsMetadataColumns() {
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS read_url VARCHAR(2048) NULL');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS listen_url VARCHAR(2048) NULL');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS watch_url VARCHAR(2048) NULL');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_read_button TINYINT(1) NOT NULL DEFAULT 1');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_listen_button TINYINT(1) NOT NULL DEFAULT 1');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_watch_button TINYINT(1) NOT NULL DEFAULT 1');
 }
 
 async function fetchAdminPostById(id) {
@@ -123,8 +138,10 @@ async function fetchAdminPostById(id) {
         [rows] = await dbPromise.query(
             `SELECT p.id, p.slug, p.title, p.subtitle, p.excerpt AS summary, p.content,
                     p.featured_image_url AS thumbnailUrl, p.topic, p.episode, p.hashtags,
+                    p.read_url AS readUrl, p.listen_url AS listenUrl, p.watch_url AS watchUrl,
+                    p.show_read_button AS showReadButton, p.show_listen_button AS showListenButton, p.show_watch_button AS showWatchButton,
                     p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
-                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Sharon Danley') AS authorName
              FROM posts p
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.id = ? AND p.deleted_at IS NULL
@@ -136,8 +153,10 @@ async function fetchAdminPostById(id) {
         [rows] = await dbPromise.query(
             `SELECT p.id, p.slug, p.title, NULL AS subtitle, p.excerpt AS summary, p.content,
                     p.featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode, NULL AS hashtags,
+                    NULL AS readUrl, NULL AS listenUrl, NULL AS watchUrl,
+                    1 AS showReadButton, 1 AS showListenButton, 1 AS showWatchButton,
                     p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
-                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Sharon Danley') AS authorName
              FROM posts p
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.id = ? AND p.deleted_at IS NULL
@@ -160,8 +179,10 @@ async function fetchPublicPostByField(field, value) {
         [rows] = await dbPromise.query(
             `SELECT p.id, p.slug, p.title, p.subtitle, p.excerpt AS summary, p.content,
                     p.featured_image_url AS thumbnailUrl, p.topic, p.episode, p.hashtags,
+                    p.read_url AS readUrl, p.listen_url AS listenUrl, p.watch_url AS watchUrl,
+                    p.show_read_button AS showReadButton, p.show_listen_button AS showListenButton, p.show_watch_button AS showWatchButton,
                     p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
-                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Sharon Danley') AS authorName
              FROM posts p
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.${field} = ? AND p.deleted_at IS NULL
@@ -173,8 +194,10 @@ async function fetchPublicPostByField(field, value) {
         [rows] = await dbPromise.query(
             `SELECT p.id, p.slug, p.title, NULL AS subtitle, p.excerpt AS summary, p.content,
                     p.featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode, NULL AS hashtags,
+                    NULL AS readUrl, NULL AS listenUrl, NULL AS watchUrl,
+                    1 AS showReadButton, 1 AS showListenButton, 1 AS showWatchButton,
                     p.status, p.published_at AS publishedAt, p.created_at AS createdAt,
-                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Simply Sharon') AS authorName
+                    p.updated_at AS updatedAt, COALESCE(u.name, p.author, 'Sharon Danley') AS authorName
              FROM posts p
              LEFT JOIN users u ON u.id = p.author_id
              WHERE p.${field} = ? AND p.deleted_at IS NULL
@@ -186,7 +209,7 @@ async function fetchPublicPostByField(field, value) {
     return hydratePostRecord(rows[0]);
 }
 
-async function fetchPublicArchivePosts({ page, limit, search, year, month }) {
+async function fetchPublicArchivePosts({ page, limit, search, year, month, sort }) {
     const where = ['deleted_at IS NULL', 'published_at IS NOT NULL'];
     const params = [];
     const countParams = [];
@@ -194,6 +217,7 @@ async function fetchPublicArchivePosts({ page, limit, search, year, month }) {
     const numericYear = Number(year);
     const numericMonth = Number(month);
     const offset = (page - 1) * limit;
+    const normalizedSort = typeof sort === 'string' ? sort.trim().toLowerCase() : '';
 
     if (trimmedSearch) {
         where.push('(title LIKE ? OR excerpt LIKE ? OR content LIKE ?)');
@@ -221,11 +245,13 @@ async function fetchPublicArchivePosts({ page, limit, search, year, month }) {
         [items] = await dbPromise.query(
             `SELECT id, slug, title, subtitle, excerpt AS summary,
                     featured_image_url AS thumbnailUrl, topic, episode,
+                    read_url AS readUrl, listen_url AS listenUrl, watch_url AS watchUrl,
+                    show_read_button AS showReadButton, show_listen_button AS showListenButton, show_watch_button AS showWatchButton,
                     published_at AS publishedAt, created_at AS createdAt,
                     updated_at AS updatedAt
              FROM posts
              WHERE ${whereClause}
-             ORDER BY COALESCE(published_at, created_at) DESC
+             ORDER BY ${normalizedSort === 'category' ? "COALESCE(NULLIF(topic, ''), 'zzzz'), title ASC, COALESCE(published_at, created_at) DESC" : 'COALESCE(published_at, created_at) DESC'}
              LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );
@@ -234,11 +260,13 @@ async function fetchPublicArchivePosts({ page, limit, search, year, month }) {
         [items] = await dbPromise.query(
             `SELECT id, slug, title, NULL AS subtitle, excerpt AS summary,
                     featured_image_url AS thumbnailUrl, NULL AS topic, NULL AS episode,
+                    NULL AS readUrl, NULL AS listenUrl, NULL AS watchUrl,
+                    1 AS showReadButton, 1 AS showListenButton, 1 AS showWatchButton,
                     published_at AS publishedAt, created_at AS createdAt,
                     updated_at AS updatedAt
              FROM posts
              WHERE ${whereClause}
-             ORDER BY COALESCE(published_at, created_at) DESC
+             ORDER BY ${normalizedSort === 'category' ? "title ASC, COALESCE(published_at, created_at) DESC" : 'COALESCE(published_at, created_at) DESC'}
              LIMIT ? OFFSET ?`,
             [...params, limit, offset]
         );
@@ -269,6 +297,7 @@ async function ensureCommentsTable() {
             likes_count INT NOT NULL DEFAULT 0,
             hearts_count INT NOT NULL DEFAULT 0,
             is_verified_author TINYINT(1) NOT NULL DEFAULT 0,
+            status VARCHAR(32) NOT NULL DEFAULT 'Posted',
             INDEX idx_comments_post_id (post_id),
             INDEX idx_comments_parent_id (parent_id),
             CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
@@ -281,6 +310,7 @@ async function ensureCommentsTable() {
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes_count INT NOT NULL DEFAULT 0');
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS hearts_count INT NOT NULL DEFAULT 0');
     await dbPromise.query('ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_verified_author TINYINT(1) NOT NULL DEFAULT 0');
+    await dbPromise.query("ALTER TABLE comments ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'Posted'");
 
     try {
         await dbPromise.query(
@@ -296,6 +326,12 @@ async function ensureCommentsTable() {
         `UPDATE comments
          SET author_name = 'Anonymous'
          WHERE author_name IS NULL OR author_name = ''`
+    );
+
+    await dbPromise.query(
+        `UPDATE comments
+         SET status = 'Posted'
+         WHERE status IS NULL OR status = ''`
     );
 }
 
@@ -391,9 +427,10 @@ app.get('/api/blogcast/posts', async (req, res) => {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
     const year = typeof req.query.year === 'string' ? req.query.year : '';
     const month = typeof req.query.month === 'string' ? req.query.month : '';
+    const sort = typeof req.query.sort === 'string' ? req.query.sort : '';
 
     try {
-        const data = await fetchPublicArchivePosts({ page, limit, search, year, month });
+        const data = await fetchPublicArchivePosts({ page, limit, search, year, month, sort });
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -427,7 +464,7 @@ app.get('/api/blogcast/comments', async (req, res) => {
                     likes_count AS likesCount, hearts_count AS heartsCount,
                     is_verified_author AS isVerifiedAuthor
              FROM comments
-             WHERE post_id = ?
+             WHERE post_id = ? AND status = 'Posted'
              ORDER BY created_at ASC`,
             [postId]
         );
@@ -484,16 +521,16 @@ app.post('/api/blogcast/comments', async (req, res) => {
         }
 
         const [result] = await dbPromise.query(
-            `INSERT INTO comments (post_id, parent_id, author_name, content, is_verified_author)
-             VALUES (?, ?, ?, ?, ?)`,
-            [postId, parentId, authorName, safeContent, isVerifiedAuthor]
+            `INSERT INTO comments (post_id, parent_id, author_name, content, is_verified_author, status)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [postId, parentId, authorName, safeContent, isVerifiedAuthor, isVerifiedAuthor ? 'Posted' : 'Pending Approval']
         );
 
         const [rows] = await dbPromise.query(
             `SELECT id, post_id AS postId, parent_id AS parentId,
                     author_name AS authorName, content, created_at AS createdAt,
                     likes_count AS likesCount, hearts_count AS heartsCount,
-                    is_verified_author AS isVerifiedAuthor
+                    is_verified_author AS isVerifiedAuthor, status
              FROM comments
              WHERE id = ? LIMIT 1`,
             [result.insertId]
@@ -664,6 +701,7 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : '';
     const date = typeof req.query.date === 'string' ? req.query.date.trim() : '';
+    const sort = typeof req.query.sort === 'string' ? req.query.sort.trim().toLowerCase() : '';
 
     try {
         let items, total;
@@ -687,8 +725,10 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
             const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, subtitle, featured_image_url AS thumbnailUrl,
-                        topic, episode, published_at AS publishedAt, created_at AS createdAt
-                 FROM posts WHERE ${wc} ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`,
+                        topic, episode, read_url AS readUrl, listen_url AS listenUrl, watch_url AS watchUrl,
+                        show_read_button AS showReadButton, show_listen_button AS showListenButton, show_watch_button AS showWatchButton,
+                        published_at AS publishedAt, created_at AS createdAt
+                 FROM posts WHERE ${wc} ORDER BY ${sort === 'category' ? "COALESCE(NULLIF(topic, ''), 'zzzz'), title ASC, COALESCE(published_at, created_at) DESC, id DESC" : 'COALESCE(published_at, created_at) DESC, id DESC'} LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             );
             [[{ total }]] = await dbPromise.query(
@@ -715,8 +755,10 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
             const wc = where.join(' AND ');
             [items] = await dbPromise.query(
                 `SELECT id, slug, title, NULL AS subtitle, featured_image_url AS thumbnailUrl,
-                        NULL AS topic, NULL AS episode, published_at AS publishedAt, created_at AS createdAt
-                 FROM posts WHERE ${wc} ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`,
+                        NULL AS topic, NULL AS episode, NULL AS readUrl, NULL AS listenUrl, NULL AS watchUrl,
+                        1 AS showReadButton, 1 AS showListenButton, 1 AS showWatchButton,
+                        published_at AS publishedAt, created_at AS createdAt
+                 FROM posts WHERE ${wc} ORDER BY ${sort === 'category' ? "title ASC, COALESCE(published_at, created_at) DESC, id DESC" : 'COALESCE(published_at, created_at) DESC, id DESC'} LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             );
             [[{ total }]] = await dbPromise.query(
@@ -743,7 +785,7 @@ app.get('/api/admin/posts/:id', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/admin/posts', authMiddleware, async (req, res) => {
-    const { title, subtitle, summary, topic, episode, hashtags, blocks, thumbnailUrl, published } = req.body;
+    const { title, summary, topic, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
 
     if (!title || !title.trim()) {
         return res.status(400).json({ error: 'Title is required' });
@@ -761,11 +803,12 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
             [result] = await dbPromise.query(
                 `INSERT INTO posts
                    (title, subtitle, slug, excerpt, content, featured_image_url,
-                    status, published_at, topic, episode, hashtags, author_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    status, published_at, topic, episode, hashtags, author_id,
+                    read_url, listen_url, watch_url, show_read_button, show_listen_button, show_watch_button)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     title.trim(),
-                    subtitle?.trim() || null,
+                    null,
                     slug,
                     summary?.trim() || null,
                     content,
@@ -773,9 +816,15 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
                     status,
                     publishedAt,
                     topic?.trim() || null,
-                    episode ? parseInt(episode) : null,
+                    null,
                     hashtags?.length ? JSON.stringify(hashtags) : null,
                     req.adminUser.id,
+                    readUrl?.trim() || null,
+                    listenUrl?.trim() || null,
+                    watchUrl?.trim() || null,
+                    showReadButton === false ? 0 : 1,
+                    showListenButton === false ? 0 : 1,
+                    showWatchButton === false ? 0 : 1,
                 ]
             );
         } catch (err) {
@@ -805,7 +854,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { title, subtitle, summary, topic, episode, hashtags, blocks, thumbnailUrl, published } = req.body;
+    const { title, summary, topic, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
 
     if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
     if (!title || !title.trim()) {
@@ -825,28 +874,33 @@ app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
 
         const content = JSON.stringify(blocks || []);
         const status = published ? 'published' : 'draft';
-        const normalizedEpisode = Number.isInteger(Number(episode)) && Number(episode) > 0
-            ? parseInt(episode, 10)
-            : null;
         const publishedAt = published ? (existing.publishedAt || new Date()) : null;
 
         try {
             await dbPromise.query(
                 `UPDATE posts
                  SET title = ?, subtitle = ?, excerpt = ?, content = ?, featured_image_url = ?,
-                     status = ?, published_at = ?, topic = ?, episode = ?, hashtags = ?
+                     status = ?, published_at = ?, topic = ?, episode = ?, hashtags = ?,
+                     read_url = ?, listen_url = ?, watch_url = ?,
+                     show_read_button = ?, show_listen_button = ?, show_watch_button = ?
                  WHERE id = ? AND deleted_at IS NULL`,
                 [
                     title.trim(),
-                    subtitle?.trim() || null,
+                    null,
                     summary?.trim() || null,
                     content,
                     thumbnailUrl || null,
                     status,
                     publishedAt,
                     topic?.trim() || null,
-                    normalizedEpisode,
+                    null,
                     hashtags?.length ? JSON.stringify(hashtags) : null,
+                    readUrl?.trim() || null,
+                    listenUrl?.trim() || null,
+                    watchUrl?.trim() || null,
+                    showReadButton === false ? 0 : 1,
+                    showListenButton === false ? 0 : 1,
+                    showWatchButton === false ? 0 : 1,
                     id,
                 ]
             );
@@ -949,7 +1003,7 @@ app.get('/api/admin/comments', authMiddleware, async (req, res) => {
             `SELECT c.id, c.post_id AS postId, c.parent_id AS parentId,
                     c.author_name AS authorName, c.content, c.created_at AS createdAt,
                     c.likes_count AS likesCount, c.hearts_count AS heartsCount,
-                    c.is_verified_author AS isVerifiedAuthor,
+                    c.is_verified_author AS isVerifiedAuthor, c.status,
                     p.title AS postTitle, p.slug AS postSlug
              FROM comments c
              INNER JOIN posts p ON p.id = c.post_id
@@ -957,6 +1011,21 @@ app.get('/api/admin/comments', authMiddleware, async (req, res) => {
              ORDER BY p.id DESC, COALESCE(c.parent_id, c.id) ASC, c.parent_id IS NOT NULL ASC, c.created_at ASC`
         );
         res.json({ items: rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/admin/comments/:id/approve', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'Invalid comment ID' });
+
+    try {
+        const [result] = await dbPromise.query("UPDATE comments SET status = 'Posted' WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Comment not found' });
+        }
+        res.json({ ok: true, status: 'Posted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1051,6 +1120,7 @@ async function startServer() {
         console.log('[startup] uploadsDir:', uploadsDir);
         await ensureCommentsTable();
         await ensureSiteSettingsTable();
+        await ensurePostsMetadataColumns();
     } catch (error) {
         console.error('Failed to ensure comments table:', error.message);
         process.exit(1);

@@ -1,4 +1,16 @@
-export type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider";
+export type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid";
+
+export type GridCellContentType = "paragraph" | "image" | "thumbnail";
+
+export type GridLayout = "1x3" | "3x3";
+
+export type GridCell = {
+  id: string;
+  contentType: GridCellContentType;
+  content?: string;
+  url?: string;
+  caption?: string;
+};
 
 export type BlogBlock = {
   id: string;
@@ -6,6 +18,8 @@ export type BlogBlock = {
   content?: string;
   url?: string;
   caption?: string;
+  layout?: GridLayout;
+  cells?: GridCell[];
 };
 
 export type ArchivePost = {
@@ -17,6 +31,12 @@ export type ArchivePost = {
   thumbnailUrl?: string | null;
   topic?: string | null;
   episode?: number | null;
+  readUrl?: string | null;
+  listenUrl?: string | null;
+  watchUrl?: string | null;
+  showReadButton?: boolean;
+  showListenButton?: boolean;
+  showWatchButton?: boolean;
   publishedAt?: string | null;
   createdAt?: string | null;
 };
@@ -46,6 +66,8 @@ type ArchiveResponse = {
   totalPages: number;
 };
 
+export type ArchiveSort = "recent" | "category";
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "same-origin" });
   const data = await response.json().catch(() => ({}));
@@ -61,6 +83,7 @@ export function fetchBlogcastPosts(params: {
   search?: string;
   year?: string;
   month?: string;
+  sort?: ArchiveSort;
 }) {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -70,6 +93,7 @@ export function fetchBlogcastPosts(params: {
   if (params.search?.trim()) query.set("search", params.search.trim());
   if (params.year?.trim()) query.set("year", params.year.trim());
   if (params.month?.trim()) query.set("month", params.month.trim());
+  if (params.sort === "category") query.set("sort", "category");
 
   return fetchJson<ArchiveResponse>(`/api/blogcast/posts?${query.toString()}`);
 }

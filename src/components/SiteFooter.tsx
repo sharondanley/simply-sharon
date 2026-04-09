@@ -29,7 +29,7 @@ export function SiteFooter() {
         id="connect"
         className="w-full hidden md:block"
         style={{
-          height: "calc(1172px * min(1, calc(100vw / 1920)))",
+          height: "calc(1072px * min(1, calc(100vw / 1920)))",
           overflow: "hidden",
           flexShrink: 0,
         }}
@@ -37,7 +37,7 @@ export function SiteFooter() {
         <div
           style={{
             width: "1920px",
-            height: "1172px",
+            height: "1072px",
             transformOrigin: "top left",
             transform: "scale(min(1, calc(100vw / 1920)))",
             display: "flex",
@@ -50,8 +50,9 @@ export function SiteFooter() {
         >
           <div style={{ width: "1556px", paddingTop: "54px", paddingBottom: "54px", display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "10px" }}>
             <div style={{ width: "1402px", display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "59px" }}>
-              <div style={{ width: "1364px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "95px" }}>
-                <div style={{ width: "100%", paddingTop: "14px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "26px" }}>
+              <div style={{ width: "1364px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "72px" }}>
+                  <div style={{ width: "100%", paddingTop: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "20px" }}>
+
                   <div style={{ fontFamily: "Italianno, cursive", fontWeight: 400, fontSize: "96px", lineHeight: "120px", color: "#FFFFFF", textAlign: "center" }}>
                     Connect with Sharon
                   </div>

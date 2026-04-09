@@ -19,6 +19,7 @@ interface ApiComment {
   likesCount: number | string;
   heartsCount: number | string;
   isVerifiedAuthor: number | string;
+  status?: string;
 }
 
 interface Comment {
@@ -346,6 +347,7 @@ export function CommentSection({ postId }: { postId?: number }) {
   const [authorName, setAuthorName] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
   const [submitting, setSubmitting] = useState(false);
@@ -448,15 +450,19 @@ export function CommentSection({ postId }: { postId?: number }) {
     }
 
     await loadComments();
+    return data as ApiComment;
   };
 
   const addComment = async (html: string) => {
     setSubmitting(true);
     setError("");
+    setNotice("");
     try {
-      await postComment(html, null);
-      if (!isAdmin) {
-        setAuthorName("");
+      const created = await postComment(html, null);
+      if (String(created.status || "").toLowerCase() === "pending approval") {
+        setNotice("Thanks — your comment has been received and is pending approval.");
+      } else {
+        setNotice("Your comment has been posted.");
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save comment");
@@ -468,8 +474,14 @@ export function CommentSection({ postId }: { postId?: number }) {
 
   const addReply = async (parentId: number, html: string) => {
     setError("");
+    setNotice("");
     try {
-      await postComment(html, parentId);
+      const created = await postComment(html, parentId);
+      if (String(created.status || "").toLowerCase() === "pending approval") {
+        setNotice("Thanks — your reply has been received and is pending approval.");
+      } else {
+        setNotice("Your reply has been posted.");
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save reply");
       throw submitError;
@@ -571,6 +583,12 @@ export function CommentSection({ postId }: { postId?: number }) {
         </div>
 
         <RichTextEditor disabled={submitting} onSend={addComment} placeholder="Add a comment" />
+
+        {notice && (
+          <div style={{ ...T.meta, fontFamily: T.fontFamily, color: "#166534" }}>
+            {notice}
+          </div>
+        )}
 
         {error && (
           <div style={{ ...T.meta, fontFamily: T.fontFamily, color: "#991b1b" }}>
