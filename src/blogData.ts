@@ -43,6 +43,7 @@ export type ArchivePost = {
 
 export type BlogPersonalization = {
   displayName?: string | null;
+  email?: string | null;
   role?: string | null;
   profilePhotoUrl?: string | null;
   inspirationQuote?: string | null;

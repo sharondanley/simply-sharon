@@ -337,6 +337,7 @@ async function ensureCommentsTable() {
 
 const DEFAULT_ADMIN_PERSONALIZATION = {
     displayName: 'Sharon Danley',
+    email: 'info@SimplySharon.ca',
     role: 'Master Beauty Mentor',
     profilePhotoUrl: '',
     inspirationQuote: 'Style is a way to say who you are without having to speak.',
@@ -386,9 +387,32 @@ function sanitizeSettingText(value, maxLength = 2000) {
         .slice(0, maxLength);
 }
 
+function buildCommentSnippet(value, maxLength = 120) {
+    const normalized = sanitizeSettingText(value, maxLength + 1);
+    return normalized.length > maxLength
+        ? `${normalized.slice(0, maxLength - 1).trimEnd()}…`
+        : normalized;
+}
+
+async function sendCommentAlertNotification(message) {
+    try {
+        await fetch('https://ntfy.sh/simply-sharon-comment-alerts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Title': 'Simply Sharon Comment Alert',
+            },
+            body: message,
+        });
+    } catch (err) {
+        console.error('Failed to send ntfy notification:', err);
+    }
+}
+
 async function getAdminPersonalization() {
     const settings = await getSiteSettings([
         'admin_display_name',
+        'admin_email',
         'admin_role',
         'admin_profile_photo_url',
         'admin_inspiration_quote',
@@ -398,6 +422,7 @@ async function getAdminPersonalization() {
 
     return {
         displayName: settings.admin_display_name || DEFAULT_ADMIN_PERSONALIZATION.displayName,
+        email: settings.admin_email || DEFAULT_ADMIN_PERSONALIZATION.email,
         role: settings.admin_role || DEFAULT_ADMIN_PERSONALIZATION.role,
         profilePhotoUrl: settings.admin_profile_photo_url || DEFAULT_ADMIN_PERSONALIZATION.profilePhotoUrl,
         inspirationQuote: settings.admin_inspiration_quote || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote,
@@ -507,24 +532,37 @@ app.post('/api/blogcast/comments', async (req, res) => {
 
     try {
         const [postRows] = await dbPromise.query(
-            'SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL AND published_at IS NOT NULL LIMIT 1',
+            'SELECT id, title FROM posts WHERE id = ? AND deleted_at IS NULL AND published_at IS NOT NULL LIMIT 1',
             [postId]
         );
-        if (!postRows[0]) return res.status(404).json({ error: 'Post not found' });
+        const post = postRows[0];
+        if (!post) return res.status(404).json({ error: 'Post not found' });
 
+        let parentComment = null;
         if (parentId) {
             const [parentRows] = await dbPromise.query(
-                'SELECT id FROM comments WHERE id = ? AND post_id = ? LIMIT 1',
+                'SELECT id, author_name AS authorName FROM comments WHERE id = ? AND post_id = ? LIMIT 1',
                 [parentId, postId]
             );
-            if (!parentRows[0]) return res.status(400).json({ error: 'Parent comment not found' });
+            parentComment = parentRows[0] || null;
+            if (!parentComment) return res.status(400).json({ error: 'Parent comment not found' });
         }
+
+        const status = isVerifiedAuthor ? 'Posted' : 'Pending Approval';
 
         const [result] = await dbPromise.query(
             `INSERT INTO comments (post_id, parent_id, author_name, content, is_verified_author, status)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [postId, parentId, authorName, safeContent, isVerifiedAuthor, isVerifiedAuthor ? 'Posted' : 'Pending Approval']
+            [postId, parentId, authorName, safeContent, isVerifiedAuthor, status]
         );
+
+        if (status === 'Pending Approval') {
+            const commentSnippet = buildCommentSnippet(safeContent);
+            const notificationMessage = parentComment
+                ? `${authorName} just replied to ${parentComment.authorName}'s comment and said: '${commentSnippet}' Article: ${post.title} Access your dashboard to approve`
+                : `${authorName} just commented: '${commentSnippet}' Article: ${post.title} Access your dashboard to approve`;
+            await sendCommentAlertNotification(notificationMessage);
+        }
 
         const [rows] = await dbPromise.query(
             `SELECT id, post_id AS postId, parent_id AS parentId,
@@ -590,6 +628,15 @@ app.get('/api/blogcast/posts/:slug', async (req, res) => {
 
 app.get("/health", (req, res) => {
     res.json({ ok: true });
+});
+
+app.get('/api/site/personalization', async (req, res) => {
+    try {
+        const personalization = await getAdminPersonalization();
+        res.json(personalization);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ─── Auth routes ───────────────────────────────────────────────────────────────
@@ -663,24 +710,53 @@ app.get('/api/admin/personalization', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/personalization', authMiddleware, async (req, res) => {
     const displayName = sanitizeSettingText(req.body?.displayName, 120) || DEFAULT_ADMIN_PERSONALIZATION.displayName;
+    const email = sanitizeSettingText(req.body?.email, 320).toLowerCase() || DEFAULT_ADMIN_PERSONALIZATION.email;
     const role = sanitizeSettingText(req.body?.role, 160) || DEFAULT_ADMIN_PERSONALIZATION.role;
     const profilePhotoUrl = sanitizeSettingText(req.body?.profilePhotoUrl, 2048);
     const inspirationQuote = sanitizeSettingText(req.body?.inspirationQuote, 1200) || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote;
     const inspirationQuoteAuthor = sanitizeSettingText(req.body?.inspirationQuoteAuthor, 200) || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuoteAuthor;
     const inspirationImageUrl = sanitizeSettingText(req.body?.inspirationImageUrl, 2048);
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'A valid email address is required' });
+    }
+
     try {
         await Promise.all([
             setSiteSetting('admin_display_name', displayName),
+            setSiteSetting('admin_email', email),
             setSiteSetting('admin_role', role),
             setSiteSetting('admin_profile_photo_url', profilePhotoUrl),
             setSiteSetting('admin_inspiration_quote', inspirationQuote),
             setSiteSetting('admin_inspiration_quote_author', inspirationQuoteAuthor),
             setSiteSetting('admin_inspiration_image_url', inspirationImageUrl),
+            dbPromise.query('UPDATE users SET email = ? WHERE id = ? LIMIT 1', [email, req.adminUser.id]),
         ]);
+
+        const [users] = await dbPromise.query(
+            'SELECT id, name, email, role FROM users WHERE id = ? LIMIT 1',
+            [req.adminUser.id]
+        );
+        const adminUser = users[0];
+
+        if (adminUser) {
+            const token = jwt.sign(
+                { id: adminUser.id, name: adminUser.name, email: adminUser.email, role: adminUser.role },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            res.cookie('admin_token', token, {
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            });
+        }
 
         res.json({
             displayName,
+            email,
             role,
             profilePhotoUrl,
             inspirationQuote,
@@ -688,6 +764,9 @@ app.put('/api/admin/personalization', authMiddleware, async (req, res) => {
             inspirationImageUrl,
         });
     } catch (err) {
+        if (err && err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'That email address is already in use' });
+        }
         res.status(500).json({ error: err.message });
     }
 });

@@ -69,7 +69,7 @@ function renderBlock(block: BlogBlock, index: number) {
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
             {cells.map((cell) => (
-              <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", borderRadius: "20px", border: "1px solid #E5E5E5", background: cell.contentType === "paragraph" ? "#FAFAFA" : "#F5F5F5", padding: "24px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px" }}>
+              <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
                 {cell.contentType === "paragraph" ? (
                   <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "30px", lineHeight: "40px", color: "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                 ) : cell.url ? (
@@ -80,7 +80,7 @@ function renderBlock(block: BlogBlock, index: number) {
                     ) : null}
                   </>
                 ) : (
-                  <div style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", borderRadius: "16px", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", color: "#6B7280" }}>
+                  <div style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", color: "#6B7280", background: "transparent" }}>
                     {cell.contentType === "thumbnail" ? "Thumbnail" : "Image"}
                   </div>
                 )}

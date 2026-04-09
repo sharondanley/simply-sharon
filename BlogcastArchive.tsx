@@ -270,7 +270,7 @@ export default function BlogcastArchive() {
                     </div>
                     <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108, flexWrap: "wrap" as const }}>
                       {[
-                        { icon: A.readBtn, label: "Read", w: 48, h: 48, r: 16, href: post.readUrl || `/blog-post/${post.id}`, visible: post.showReadButton !== false },
+                        { icon: A.readBtn, label: "Read", w: 48, h: 48, r: 16, href: post.slug ? `/blogcast/${post.slug}` : `/blog-post/${post.id}`, visible: post.showReadButton !== false },
                         { icon: A.listenBtn, label: "Listen", w: 43, h: 42, r: 0, href: post.listenUrl, visible: post.showListenButton !== false && Boolean(post.listenUrl) },
                         { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: post.watchUrl, visible: post.showWatchButton !== false && Boolean(post.watchUrl) },
                       ].filter((action) => action.visible && action.href).map(({ icon, label, w, h, r, href }) => {

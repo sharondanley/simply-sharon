@@ -33,7 +33,6 @@ type PostItem = {
   subtitle?: string | null;
   thumbnailUrl?: string | null;
   topic?: string | null;
-  readUrl?: string | null;
   listenUrl?: string | null;
   watchUrl?: string | null;
   showReadButton?: boolean;
@@ -47,7 +46,6 @@ type CreatePostInput = {
   title: string;
   summary?: string;
   topic?: string;
-  readUrl?: string;
   listenUrl?: string;
   watchUrl?: string;
   showReadButton: boolean;
@@ -106,6 +104,7 @@ type DashboardStats = {
 
 type AdminPersonalization = {
   displayName: string;
+  email: string;
   role: string;
   profilePhotoUrl: string;
   inspirationQuote: string;
@@ -115,6 +114,7 @@ type AdminPersonalization = {
 
 const DEFAULT_PERSONALIZATION: AdminPersonalization = {
   displayName: "Sharon Danley",
+  email: "info@SimplySharon.ca",
   role: "Master Beauty Mentor",
   profilePhotoUrl: "",
   inspirationQuote: "Style is a way to say who you are without having to speak.",
@@ -1064,7 +1064,6 @@ function PostEditor({
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [topic, setTopic] = useState("");
-  const [readUrl, setReadUrl] = useState("");
   const [listenUrl, setListenUrl] = useState("");
   const [watchUrl, setWatchUrl] = useState("");
   const [showReadButton, setShowReadButton] = useState(true);
@@ -1119,7 +1118,6 @@ function PostEditor({
         setTitle(post.title || "");
         setSummary(post.summary || "");
         setTopic(post.topic || "");
-        setReadUrl(post.readUrl || "");
         setListenUrl(post.listenUrl || "");
         setWatchUrl(post.watchUrl || "");
         setShowReadButton(post.showReadButton !== false);
@@ -1195,7 +1193,6 @@ function PostEditor({
         title: title.trim(),
         summary: summary.trim() || undefined,
         topic: topic.trim() || undefined,
-        readUrl: readUrl.trim() || undefined,
         listenUrl: listenUrl.trim() || undefined,
         watchUrl: watchUrl.trim() || undefined,
         showReadButton,
@@ -1429,16 +1426,23 @@ function PostEditor({
                   </div>
                 )}
               </div>
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <label className={labelClass} style={{ marginBottom: 0 }}>Read</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowReadButton((current) => !current)}
+                    title={showReadButton ? "Hide Read button" : "Show Read button"}
+                    className={`inline-flex items-center justify-center w-10 h-10 rounded-lg border transition-colors ${dark ? "border-gray-600 text-gray-300 hover:border-white hover:text-white" : "border-gray-300 text-gray-600 hover:border-black hover:text-black"}`}
+                  >
+                    {showReadButton ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
+                <p className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-500"}`}>
+                  The Read button always opens the blog post page.
+                </p>
+              </div>
               {([
-                {
-                  key: "read" as PostActionKey,
-                  label: "Read",
-                  value: readUrl,
-                  setValue: setReadUrl,
-                  visible: showReadButton,
-                  setVisible: setShowReadButton,
-                  placeholder: "Leave blank to use the article page",
-                },
                 {
                   key: "listen" as PostActionKey,
                   label: "Listen",
@@ -2138,6 +2142,7 @@ export default function AdminPanel() {
     try {
       const saved = await API.updatePersonalization(personalization);
       setPersonalization(saved);
+      setUser((current) => current ? { ...current, email: saved.email || current.email } : current);
       toast.success("Personal preferences updated.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save preferences.");
@@ -2509,6 +2514,17 @@ export default function AdminPanel() {
                       onChange={(e) => setPersonalization((current) => ({ ...current, displayName: e.target.value }))}
                       className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
                       placeholder="Sharon Danley"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Email Address</span>
+                    <input
+                      type="email"
+                      value={personalization.email}
+                      onChange={(e) => setPersonalization((current) => ({ ...current, email: e.target.value }))}
+                      className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                      placeholder="info@SimplySharon.ca"
                     />
                   </label>
 
