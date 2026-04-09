@@ -82,15 +82,19 @@ type DashboardStats = {
 
 type AdminPersonalization = {
   displayName: string;
+  role: string;
   profilePhotoUrl: string;
   inspirationQuote: string;
+  inspirationQuoteAuthor: string;
   inspirationImageUrl: string;
 };
 
 const DEFAULT_PERSONALIZATION: AdminPersonalization = {
   displayName: "Sharon Danley",
+  role: "Master Beauty Mentor",
   profilePhotoUrl: "",
   inspirationQuote: "Style is a way to say who you are without having to speak.",
+  inspirationQuoteAuthor: "Ralph Waldo Emerson",
   inspirationImageUrl: "",
 };
 
@@ -340,6 +344,49 @@ function formatDateTime(value: string) {
   return d.toLocaleString();
 }
 
+function extractYouTubeVideoId(rawUrl: string) {
+  const value = rawUrl.trim();
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (host === "youtu.be") {
+      const id = url.pathname.split("/").filter(Boolean)[0];
+      return id || null;
+    }
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (url.pathname === "/watch") {
+        return url.searchParams.get("v");
+      }
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") {
+        return parts[1] || null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getYouTubeThumbnailUrl(rawUrl: string) {
+  const videoId = extractYouTubeVideoId(rawUrl);
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
+function getYouTubeEmbedUrl(rawUrl: string) {
+  const videoId = extractYouTubeVideoId(rawUrl);
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : rawUrl.trim() || null;
+}
+
+function normalizeThumbnailUrl(rawUrl: string) {
+  return getYouTubeThumbnailUrl(rawUrl) || rawUrl.trim();
+}
+
 // ─── Block types ──────────────────────────────────────────────────────────────
 
 type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider";
@@ -535,8 +582,8 @@ function BlockEditor({
           <input
             type="text"
             value={block.url || ""}
-            onChange={(e) => onChange({ ...block, url: e.target.value })}
-            placeholder={block.type === "image" ? "Image URL..." : "YouTube embed URL (https://www.youtube.com/embed/...)"}
+            onChange={(e) => onChange({ ...block, url: block.type === "video" ? (getYouTubeEmbedUrl(e.target.value) || e.target.value) : e.target.value })}
+            placeholder={block.type === "image" ? "Image URL..." : "YouTube URL or embed URL..."}
             className={inputClass}
           />
           <input
@@ -551,9 +598,26 @@ function BlockEditor({
           )}
           {block.type === "video" && block.url && (
             <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-              <iframe src={block.url} className="w-full h-full" allowFullScreen title="Video preview" />
+              <iframe src={getYouTubeEmbedUrl(block.url) || block.url} className="w-full h-full" allowFullScreen title="Video preview" />
             </div>
           )}
+        </div>
+      );
+    }
+    if (block.type === "quote") {
+      return (
+        <div className="flex flex-col gap-3">
+          <RichTextBlock block={block} onChange={onChange} dark={dark} />
+          <label className="block">
+            <span className={`block text-sm font-semibold mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Author Name</span>
+            <input
+              type="text"
+              value={block.caption || ""}
+              onChange={(e) => onChange({ ...block, caption: e.target.value })}
+              placeholder="— Author Name"
+              className={inputClass}
+            />
+          </label>
         </div>
       );
     }
@@ -657,11 +721,17 @@ function PostPreview({
         );
       case "quote":
         return (
-          <blockquote
-            key={block.id}
-            className={`text-xl italic border-l-4 pl-5 my-5 font-['Source_Sans_3'] ${dark ? "border-gray-500 text-gray-300" : "border-gray-400 text-gray-700"}`}
-            dangerouslySetInnerHTML={{ __html: block.content || "<em>Quote</em>" }}
-          />
+          <div key={block.id} className="my-5">
+            <blockquote
+              className={`text-xl italic border-l-4 pl-5 font-['Source_Sans_3'] ${dark ? "border-gray-500 text-gray-300" : "border-gray-400 text-gray-700"}`}
+              dangerouslySetInnerHTML={{ __html: block.content || "<em>Quote</em>" }}
+            />
+            {block.caption && (
+              <div className={`mt-3 pl-7 text-3xl leading-none font-['Italianno'] ${dark ? "text-gray-200" : "text-gray-800"}`}>
+                — {block.caption}
+              </div>
+            )}
+          </div>
         );
       case "image":
         return block.url ? (
@@ -677,7 +747,7 @@ function PostPreview({
       case "video":
         return block.url ? (
           <div key={block.id} className="aspect-video rounded-lg overflow-hidden my-5">
-            <iframe src={block.url} className="w-full h-full" allowFullScreen title="Video" />
+            <iframe src={getYouTubeEmbedUrl(block.url) || block.url} className="w-full h-full" allowFullScreen title="Video" />
           </div>
         ) : null;
       case "divider":
@@ -806,7 +876,11 @@ function PostEditor({
     reader.readAsDataURL(file);
   };
 
-  const handleThumbnailUrlChange = (url: string) => { setThumbnailUrl(url); setThumbnailPreview(url); };
+  const handleThumbnailUrlChange = (url: string) => {
+    const normalized = normalizeThumbnailUrl(url);
+    setThumbnailUrl(normalized);
+    setThumbnailPreview(normalized);
+  };
   const addBlock = (type: BlockType) => setBlocks((prev) => [...prev, { id: generateId(), type }]);
   const updateBlock = (id: string, updated: Block) => setBlocks((prev) => prev.map((b) => (b.id === id ? updated : b)));
   const deleteBlock = (id: string) => setBlocks((prev) => prev.filter((b) => b.id !== id));
@@ -1005,7 +1079,7 @@ function PostEditor({
                 type="text"
                 value={thumbnailUrl}
                 onChange={(e) => handleThumbnailUrlChange(e.target.value)}
-                placeholder="Or paste image URL…"
+                placeholder="Or paste image URL or YouTube link…"
                 className={inputClass}
               />
             </div>
@@ -1656,6 +1730,8 @@ export default function AdminPanel() {
   };
 
   const displayName = personalization.displayName?.trim() || user?.name || "Sharon Danley";
+  const displayRole = personalization.role?.trim() || DEFAULT_PERSONALIZATION.role;
+  const quoteAuthor = personalization.inspirationQuoteAuthor?.trim() || DEFAULT_PERSONALIZATION.inspirationQuoteAuthor;
 
   const logout = async () => {
     try { await API.logout(); } finally { setUser(null); }
@@ -1860,6 +1936,7 @@ export default function AdminPanel() {
                     <div className="min-w-0">
                       <p className="text-white/80 text-sm uppercase tracking-[0.22em]">Dashboard</p>
                       <h3 className="text-white text-3xl md:text-4xl font-semibold truncate">{displayName}</h3>
+                      <p className="text-white/80 text-sm md:text-base truncate">{displayRole}</p>
                     </div>
                   </div>
                   <button
@@ -1870,11 +1947,16 @@ export default function AdminPanel() {
                   </button>
                 </div>
               </div>
-              <div className={`px-8 py-6 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
-                <p className={`text-xs uppercase tracking-[0.24em] mb-2 ${textMuted}`}>Quote of the Week</p>
-                <blockquote className={`admin-script text-[2.3rem] md:text-[3rem] leading-[1.1] font-normal ${textPrimary}`}>
-                  “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
-                </blockquote>
+              <div className={`px-8 py-8 border-t ${dark ? "border-gray-700 bg-gray-900/95" : "border-gray-200 bg-white"}`}>
+                <p className={`text-xs uppercase tracking-[0.24em] mb-3 text-center ${textMuted}`}>Quote of the Week</p>
+                <div className="flex flex-col items-center text-center gap-3">
+                  <blockquote className={`max-w-4xl text-[1.5rem] md:text-[1.95rem] leading-[1.35] font-semibold ${textPrimary}`}>
+                    “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
+                  </blockquote>
+                  <div className="admin-script text-[2.25rem] md:text-[2.9rem] leading-none text-black dark:text-white">
+                    — {quoteAuthor}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
@@ -1996,6 +2078,16 @@ export default function AdminPanel() {
                   </label>
 
                   <label className="block">
+                    <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Role</span>
+                    <input
+                      value={personalization.role}
+                      onChange={(e) => setPersonalization((current) => ({ ...current, role: e.target.value }))}
+                      className={`w-full px-4 py-3 rounded-xl border ${dark ? "bg-gray-900 border-gray-600 text-white" : "bg-white border-gray-300 text-black"}`}
+                      placeholder="Master Beauty Mentor"
+                    />
+                  </label>
+
+                  <label className="block">
                     <span className={`block text-sm font-semibold mb-2 ${textPrimary}`}>Quote of the Week</span>
                     <textarea
                       value={personalization.inspirationQuote}
@@ -2064,15 +2156,20 @@ export default function AdminPanel() {
                     />
                     <div>
                       <p className="text-white text-lg font-semibold">{displayName}</p>
-                      <p className="text-white/80 text-sm">Dashboard preview</p>
+                      <p className="text-white/80 text-sm">{displayRole}</p>
                     </div>
                   </div>
                 </div>
                 <div className="p-5">
-                  <p className={`text-xs uppercase tracking-[0.22em] mb-2 ${textMuted}`}>Quote of the Week</p>
-                  <blockquote className={`text-lg leading-8 ${textPrimary}`}>
-                    “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
-                  </blockquote>
+                  <p className={`text-xs uppercase tracking-[0.22em] mb-2 text-center ${textMuted}`}>Quote of the Week</p>
+                  <div className="flex flex-col items-center text-center gap-2">
+                    <blockquote className={`text-lg leading-8 font-semibold ${textPrimary}`}>
+                      “{personalization.inspirationQuote || DEFAULT_PERSONALIZATION.inspirationQuote}”
+                    </blockquote>
+                    <div className="admin-script text-3xl leading-none text-black dark:text-white">
+                      — {quoteAuthor}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

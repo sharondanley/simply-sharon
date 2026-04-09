@@ -21,12 +21,22 @@ export type ArchivePost = {
   createdAt?: string | null;
 };
 
+export type BlogPersonalization = {
+  displayName?: string | null;
+  role?: string | null;
+  profilePhotoUrl?: string | null;
+  inspirationQuote?: string | null;
+  inspirationQuoteAuthor?: string | null;
+  inspirationImageUrl?: string | null;
+};
+
 export type BlogPostRecord = ArchivePost & {
   blocks: BlogBlock[];
   hashtags: string[];
   published: boolean;
   authorName?: string | null;
   updatedAt?: string | null;
+  personalization?: BlogPersonalization | null;
 };
 
 type ArchiveResponse = {

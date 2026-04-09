@@ -301,8 +301,10 @@ async function ensureCommentsTable() {
 
 const DEFAULT_ADMIN_PERSONALIZATION = {
     displayName: 'Sharon Danley',
+    role: 'Master Beauty Mentor',
     profilePhotoUrl: '',
     inspirationQuote: 'Style is a way to say who you are without having to speak.',
+    inspirationQuoteAuthor: 'Ralph Waldo Emerson',
     inspirationImageUrl: '',
 };
 
@@ -351,15 +353,19 @@ function sanitizeSettingText(value, maxLength = 2000) {
 async function getAdminPersonalization() {
     const settings = await getSiteSettings([
         'admin_display_name',
+        'admin_role',
         'admin_profile_photo_url',
         'admin_inspiration_quote',
+        'admin_inspiration_quote_author',
         'admin_inspiration_image_url',
     ]);
 
     return {
         displayName: settings.admin_display_name || DEFAULT_ADMIN_PERSONALIZATION.displayName,
+        role: settings.admin_role || DEFAULT_ADMIN_PERSONALIZATION.role,
         profilePhotoUrl: settings.admin_profile_photo_url || DEFAULT_ADMIN_PERSONALIZATION.profilePhotoUrl,
         inspirationQuote: settings.admin_inspiration_quote || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote,
+        inspirationQuoteAuthor: settings.admin_inspiration_quote_author || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuoteAuthor,
         inspirationImageUrl: settings.admin_inspiration_image_url || DEFAULT_ADMIN_PERSONALIZATION.inspirationImageUrl,
     };
 }
@@ -399,9 +405,12 @@ app.get('/api/blogcast/posts/id/:id', async (req, res) => {
     if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
 
     try {
-        const post = await fetchPublicPostByField('id', id);
+        const [post, personalization] = await Promise.all([
+            fetchPublicPostByField('id', id),
+            getAdminPersonalization(),
+        ]);
         if (!post) return res.status(404).json({ error: 'Post not found' });
-        res.json(post);
+        res.json({ ...post, personalization });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -531,9 +540,12 @@ app.patch('/api/blogcast/comments/:id/reaction', async (req, res) => {
 
 app.get('/api/blogcast/posts/:slug', async (req, res) => {
     try {
-        const post = await fetchPublicPostByField('slug', req.params.slug);
+        const [post, personalization] = await Promise.all([
+            fetchPublicPostByField('slug', req.params.slug),
+            getAdminPersonalization(),
+        ]);
         if (!post) return res.status(404).json({ error: 'Post not found' });
-        res.json(post);
+        res.json({ ...post, personalization });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -614,22 +626,28 @@ app.get('/api/admin/personalization', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/personalization', authMiddleware, async (req, res) => {
     const displayName = sanitizeSettingText(req.body?.displayName, 120) || DEFAULT_ADMIN_PERSONALIZATION.displayName;
+    const role = sanitizeSettingText(req.body?.role, 160) || DEFAULT_ADMIN_PERSONALIZATION.role;
     const profilePhotoUrl = sanitizeSettingText(req.body?.profilePhotoUrl, 2048);
     const inspirationQuote = sanitizeSettingText(req.body?.inspirationQuote, 1200) || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuote;
+    const inspirationQuoteAuthor = sanitizeSettingText(req.body?.inspirationQuoteAuthor, 200) || DEFAULT_ADMIN_PERSONALIZATION.inspirationQuoteAuthor;
     const inspirationImageUrl = sanitizeSettingText(req.body?.inspirationImageUrl, 2048);
 
     try {
         await Promise.all([
             setSiteSetting('admin_display_name', displayName),
+            setSiteSetting('admin_role', role),
             setSiteSetting('admin_profile_photo_url', profilePhotoUrl),
             setSiteSetting('admin_inspiration_quote', inspirationQuote),
+            setSiteSetting('admin_inspiration_quote_author', inspirationQuoteAuthor),
             setSiteSetting('admin_inspiration_image_url', inspirationImageUrl),
         ]);
 
         res.json({
             displayName,
+            role,
             profilePhotoUrl,
             inspirationQuote,
+            inspirationQuoteAuthor,
             inspirationImageUrl,
         });
     } catch (err) {

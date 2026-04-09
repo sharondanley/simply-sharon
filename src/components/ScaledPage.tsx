@@ -15,10 +15,12 @@ export function ScaledPage({
 
   useEffect(() => {
     const measure = () => {
+      const contentHeight = innerRef.current?.offsetHeight || 0;
       const nextScale = Math.min(1, window.innerWidth / width);
-      const nextHeight = (innerRef.current?.offsetHeight || 0) * nextScale;
+      const scaledHeight = contentHeight * nextScale;
+      const spacerHeight = Math.max(0, contentHeight - scaledHeight);
       setScale(nextScale);
-      setHeight(nextHeight);
+      setHeight(spacerHeight);
     };
 
     measure();

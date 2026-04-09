@@ -81,6 +81,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
   const [post, setPost] = useState<BlogPostRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [canReturnToAdmin, setCanReturnToAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,25 +109,79 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
     };
   }, [id, slug]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json().catch(() => null);
+      })
+      .then((user) => {
+        if (cancelled || !user) return;
+        const role = String(user.role || "").toLowerCase();
+        if (role.includes("admin") || role.includes("author")) {
+          setCanReturnToAdmin(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCanReturnToAdmin(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const leadText = useMemo(() => (post ? getPostLeadText(post) : ""), [post]);
   const bodyBlocks = post?.blocks || [];
+  const personalization = post?.personalization || null;
+  const displayAuthor = (personalization?.displayName || post?.authorName || "Sharon Danley").trim();
+  const displayRole = (personalization?.role || "Master Beauty Mentor").trim();
+  const authorLine = displayRole ? `${displayAuthor}, ${displayRole}` : displayAuthor;
 
   return (
     <SiteLayout background="#fff" includeFooter={true}>
       <ScaledPage watchKey={`${post?.id || "missing"}-${loading}-${bodyBlocks.length}`}>
         <div style={{ width: "1920px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "43px" }}>
-          <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "10px", paddingTop: "20px" }}>
-            <a href="/" style={{ padding: "10px" }}><img src={ASSETS.breadcrumbIcon} alt="home" style={{ width: "29px", height: "29px", cursor: "pointer" }} /></a>
-            <div style={{ padding: "10px" }}>
-              <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "24px", fontWeight: 400, color: "#000" }}>
-                <a href="/" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>home</a>
-                {" / "}
-                <a href="/blogcast" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>Blogcast Home</a>
-                {" / "}
-                <span style={{ fontWeight: 700 }}>{post?.title || "Blog Post"}</span>
-              </span>
+          <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "14px", paddingTop: "20px" }}>
+            {canReturnToAdmin && (
+              <a
+                href="/admin"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 18px",
+                  borderRadius: "999px",
+                  border: "1px solid #d4d4d4",
+                  background: "#fff",
+                  color: "#111",
+                  textDecoration: "none",
+                  fontFamily: "Helvetica, Arial, sans-serif",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  lineHeight: "24px",
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.06)"
+                }}
+              >
+                ← Back to Admin
+              </a>
+            )}
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "10px" }}>
+              <a href="/" style={{ padding: "10px" }}><img src={ASSETS.breadcrumbIcon} alt="home" style={{ width: "29px", height: "29px", cursor: "pointer" }} /></a>
+              <div style={{ padding: "10px" }}>
+                <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "24px", fontWeight: 400, color: "#000" }}>
+                  <a href="/" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>home</a>
+                  {" / "}
+                  <a href="/blogcast" style={{ cursor: "pointer", textDecoration: "none", color: "inherit", fontWeight: 400 }}>Blogcast Home</a>
+                  {" / "}
+                  <span style={{ fontWeight: 700 }}>{post?.title || "Blog Post"}</span>
+                </span>
+              </div>
             </div>
           </div>
+
 
           <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", overflow: "hidden" }}>
@@ -159,13 +214,17 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
           {!loading && post && (
             <>
-          <div style={{ alignSelf: "stretch", padding: "0 116px", display: "flex", flexDirection: "column", gap: "129px" }}>
-            <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "center", gap: "46px" }}>
+            <div style={{ alignSelf: "stretch", padding: "0 116px", display: "flex", flexDirection: "column", gap: "129px" }}>
+            <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "flex-start", gap: "46px" }}>
+
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
-                <div style={{ padding: "10px" }}>
-                  <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", fontStyle: "italic", color: "#A3A3A3" }}>
-                    {formatArchiveDate(post.publishedAt || post.createdAt)}{post.episode ? ` | Ep ${post.episode}` : ""}<br />By: {post.authorName || "Sharon Danley"}
-                  </span>
+                <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                  <div style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", fontStyle: "italic", color: "#A3A3A3" }}>
+                    {formatArchiveDate(post.publishedAt || post.createdAt)}{post.episode ? ` | Ep ${post.episode}` : ""}
+                  </div>
+                  <div style={{ marginTop: "10px", fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", color: "#7C7C7C" }}>
+                    {authorLine}
+                  </div>
                 </div>
                 <div style={{ alignSelf: "stretch" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
@@ -180,13 +239,19 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                   </div>
                 )}
               </div>
-              <div>
-                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover" }} />
+              <div style={{ alignSelf: "flex-start" }}>
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block" }} />
               </div>
             </div>
           </div>
 
           {bodyBlocks.map(renderBlock)}
+
+          <div style={{ width: "100%", padding: "10px 116px 0" }}>
+            <div style={{ paddingTop: "30px", display: "flex", justifyContent: "flex-start" }}>
+              <span style={{ fontFamily: "Italianno", fontSize: "82px", lineHeight: "1", color: "#000" }}>Sharon &lt;3</span>
+            </div>
+          </div>
 
           <div style={{ width: "1574px", padding: "10px 0" }}>
             <CommentSection postId={post.id} />
