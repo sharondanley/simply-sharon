@@ -154,7 +154,10 @@ const API = {
    * Called once on mount to restore an existing session.
    */
   async getCurrentUser(): Promise<AuthUser | null> {
-    const r = await fetch("/api/auth/me", { credentials: "same-origin" });
+    const r = await fetch(`/api/auth/me?_ts=${Date.now()}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
     if (!r.ok) return null;
     return r.json();
   },
@@ -173,8 +176,10 @@ const API = {
     if (status !== "all") params.set("status", status);
     if (date.trim()) params.set("date", date.trim());
     if (sort.trim()) params.set("sort", sort.trim());
+    params.set("_ts", String(Date.now()));
     const r = await fetch(`/api/admin/posts?${params}`, {
       credentials: "same-origin",
+      cache: "no-store",
     });
     if (!r.ok) throw new Error("Failed to load posts");
     return r.json();
@@ -195,8 +200,9 @@ const API = {
 
   /** Load a single post into the editor. */
   async getPost(id: number): Promise<PostDetail> {
-    const r = await fetch(`/api/admin/posts/${id}`, {
+    const r = await fetch(`/api/admin/posts/${id}?_ts=${Date.now()}`, {
       credentials: "same-origin",
+      cache: "no-store",
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || "Failed to load post");
@@ -242,13 +248,19 @@ const API = {
 
   /** Return post counts for the dashboard. */
   async getStats(): Promise<DashboardStats> {
-    const r = await fetch("/api/admin/stats", { credentials: "same-origin" });
+    const r = await fetch(`/api/admin/stats?_ts=${Date.now()}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
     if (!r.ok) throw new Error("Failed to load stats");
     return r.json();
   },
 
   async listComments(): Promise<{ items: CommentItem[] }> {
-    const r = await fetch("/api/admin/comments", { credentials: "same-origin" });
+    const r = await fetch(`/api/admin/comments?_ts=${Date.now()}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to load comments");
     return data as { items: CommentItem[] };
@@ -294,7 +306,10 @@ const API = {
   },
 
   async getPersonalization(): Promise<AdminPersonalization> {
-    const r = await fetch("/api/admin/personalization", { credentials: "same-origin" });
+    const r = await fetch(`/api/admin/personalization?_ts=${Date.now()}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((data as { error?: string }).error || "Failed to load personalization");
     return { ...DEFAULT_PERSONALIZATION, ...(data as Partial<AdminPersonalization>) };

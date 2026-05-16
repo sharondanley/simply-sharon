@@ -281,7 +281,7 @@ export default function Home() {
               >
                 Achieve Radiant Beauty, Glowing Health<br />
                 Meaningful Aging<br />
-                with Simplicity, Strength, Style &amp; Grace
+                <span style={{ fontSize: "40px" }}>with</span> Simplicity, Strength, Style &amp; Grace
               </p>
             </div>
 
@@ -345,7 +345,7 @@ export default function Home() {
 
       {/* ── Blogcast Section ── */}
       {/* Desktop Blogcast — 1920px wide, scales like navbar */}
-      <div className="w-full hidden md:block relative" style={{ height: "1286px" }}>
+      <div className="w-full hidden md:block relative" style={{ height: "1286px", overflow: "visible" }}>
         <section
           style={{
             position: "absolute",
@@ -361,6 +361,7 @@ export default function Home() {
             alignItems: "center",
             paddingBottom: "95px",
             gap: "23px",
+            overflow: "visible",
           }}
         >
           {/* section-header: 938×231px, flex col, gap 5px, padding 10px */}
@@ -472,6 +473,7 @@ export default function Home() {
               width: "1866px",
               height: "794px",
               background: "#D9D9D9",
+              overflow: "visible",
             }}
           >
             {/* blogcast-features-info: 1167×698px, flex col, gap 51px */}
