@@ -283,7 +283,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
             <div style={{ alignSelf: "stretch", padding: "0 116px", display: "flex", flexDirection: "column", gap: "129px" }}>
             <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "flex-start", gap: "46px" }}>
 
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
                 <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                   <div style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", fontStyle: "italic", color: "#A3A3A3" }}>
                     {formatArchiveDate(post.publishedAt || post.createdAt)}{post.episode ? ` | Ep ${post.episode}` : ""}
@@ -298,7 +298,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                   </span>
                 </div>
               </div>
-              <div style={{ alignSelf: "flex-start" }}>
+                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
                 <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block" }} />
               </div>
             </div>
@@ -323,3 +323,5 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
     </SiteLayout>
   );
 }
+
+

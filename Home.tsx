@@ -46,7 +46,7 @@ const ASSETS = {
   rlmbEvening: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/rlmb-evening_cf80d24c.webp",
   realLifeMakeBettersDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/92-3_2de42173.webp",
   realLifeMakeBettersMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-72_0756d509.webp",
-  gigVideoThumb: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-video-thumb_911d6b6f.webp",
+  gigVideoThumb: "https://img.youtube.com/vi/BzJqAqAdC2c/maxresdefault.jpg",
   gigFaces: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-faces_ad19bfd5.webp",
   gigCard1: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card1_71ea00fc.webp",
   gigCard2: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card2_73f2543c.webp",
@@ -281,7 +281,17 @@ export default function Home() {
               >
                 Achieve Radiant Beauty, Glowing Health<br />
                 Meaningful Aging<br />
-                <span style={{ fontSize: "40px" }}>with</span> Simplicity, Strength, Style &amp; Grace
+                <span
+                  style={{
+                    fontSize: "28px",
+                    lineHeight: 1,
+                    display: "inline-block",
+                    verticalAlign: "baseline",
+                  }}
+                >
+                  with
+                </span>{" "}
+                Simplicity, Strength, Style &amp; Grace
               </p>
             </div>
 
@@ -621,11 +631,30 @@ export default function Home() {
             </div>
 
             {/* author image: 608×602px */}
-            <img
-              src={ASSETS.blogcastAuthor}
-              alt="Sharon Danley"
-              style={{ width: "608px", height: "602px", objectFit: "cover", flexShrink: 0 }}
-            />
+            <div
+              style={{
+                width: "608px",
+                height: "602px",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "visible",
+                padding: "6px",
+                boxSizing: "border-box",
+              }}
+            >
+              <img
+                src={ASSETS.blogcastAuthor}
+                alt="Sharon Danley"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            </div>
           </div>
         </section>
       </div>
@@ -642,9 +671,13 @@ export default function Home() {
             </span>
           </div>
         </div>
-        <div className="w-full px-[13px] py-2.5 bg-white inline-flex justify-start items-start gap-[25px] overflow-hidden">
-          <img src={ASSETS.blogcastMobileLeft} alt="" className="w-[159px] h-[172px] object-cover" />
-          <img src={ASSETS.blogcastMobileRight} alt="" className="w-[180px] h-[172px] object-cover" />
+        <div className="w-full px-[13px] py-2.5 bg-white inline-flex justify-start items-start gap-[25px] overflow-visible">
+          <div className="w-[159px] h-[172px] flex items-center justify-center overflow-visible p-1 box-border">
+            <img src={ASSETS.blogcastMobileLeft} alt="" className="w-full h-full object-contain block" />
+          </div>
+          <div className="w-[180px] h-[172px] flex items-center justify-center overflow-visible p-1 box-border">
+            <img src={ASSETS.blogcastMobileRight} alt="" className="w-full h-full object-contain block" />
+          </div>
         </div>
         <div className="w-full px-[19px] py-2.5 bg-white flex flex-col justify-start items-start gap-2.5 overflow-hidden">
           <div className="self-stretch px-[37px] py-2.5 inline-flex justify-center items-center gap-2.5 overflow-hidden">

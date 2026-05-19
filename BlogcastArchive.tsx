@@ -197,14 +197,14 @@ export default function BlogcastArchive() {
             </div>
 
             {/* Search area */}
-            <div style={{ width: 1920, height: 305, paddingTop: 16, background: "#4d4d4d", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 53 }}>
-              <div style={{ paddingTop: 10, paddingBottom: 10 }}>
-                <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 60, fontWeight: 400, color: "#fff", textAlign: "center" as const }}>Search the Knowledge Base</span>
+            <div style={{ width: 1920, minHeight: 276, paddingTop: 20, paddingBottom: 20, background: "#4d4d4d", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 36 }}>
+              <div style={{ paddingTop: 8, paddingBottom: 8 }}>
+                <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 48, lineHeight: "56px", fontWeight: 400, color: "#fff", textAlign: "center" as const, maxWidth: "100%" }}>Search the Knowledge Base</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 53 }}>
-                <div style={{ width: 1078, height: 88, background: "#fff", borderRadius: 14, display: "flex", alignItems: "center", padding: 10, boxSizing: "border-box" as const, justifyContent: "space-between" }}>
-                  <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="" style={{ flex: 1, border: "none", outline: "none", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, background: "transparent" }} />
-                  <img src={A.searchIcon} alt="search" style={{ width: 47, height: 47 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+                <div style={{ width: 960, maxWidth: "100%", height: 78, background: "#fff", borderRadius: 14, display: "flex", alignItems: "center", padding: "8px 14px", boxSizing: "border-box" as const, justifyContent: "space-between" }}>
+                  <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="" style={{ flex: 1, border: "none", outline: "none", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 30, lineHeight: "36px", background: "transparent" }} />
+                  <img src={A.searchIcon} alt="search" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
                   <div className="blogcast-filter-button">
@@ -328,3 +328,4 @@ export default function BlogcastArchive() {
     </SiteLayout>
   );
 }
+
