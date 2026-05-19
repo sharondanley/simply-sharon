@@ -11,16 +11,15 @@ export function ScaledPage({
 }) {
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [height, setHeight] = useState(0);
+  const [bottomCompensation, setBottomCompensation] = useState(0);
 
   useEffect(() => {
     const measure = () => {
       const contentHeight = innerRef.current?.offsetHeight || 0;
       const nextScale = Math.min(1, window.innerWidth / width);
       const scaledHeight = contentHeight * nextScale;
-      const spacerHeight = Math.max(0, contentHeight - scaledHeight);
       setScale(nextScale);
-      setHeight(spacerHeight);
+      setBottomCompensation(Math.max(0, contentHeight - scaledHeight));
     };
 
     measure();
@@ -48,11 +47,11 @@ export function ScaledPage({
           width,
           transformOrigin: "top left",
           transform: `scale(${scale})`,
+          marginBottom: bottomCompensation > 0 ? `-${bottomCompensation}px` : 0,
         }}
       >
         {children}
       </div>
-      <div style={{ height }} />
     </div>
   );
 }

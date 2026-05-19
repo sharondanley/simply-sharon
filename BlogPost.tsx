@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CommentSection } from "./src/components/CommentSection";
 import { SiteLayout } from "./src/components/SiteLayout";
 import { ScaledPage } from "./src/components/ScaledPage";
-import { BlogBlock, BlogPostRecord, fetchBlogPostById, fetchBlogPostBySlug, formatArchiveDate, getPostLeadText, toEmbedUrl } from "./src/blogData";
+import { BlogBlock, BlogPostRecord, fetchBlogPostById, fetchBlogPostBySlug, formatArchiveDate, toEmbedUrl } from "./src/blogData";
 
 // ─── CDN Assets (Figma node-id mapped) ───────────────────────────────────────
 const ASSETS = {
@@ -49,6 +49,38 @@ function ensureGridCells(block: BlogBlock) {
       caption: existing?.caption || "",
     };
   });
+}
+
+function isNarrativeBlock(block?: BlogBlock | null) {
+  return block?.type === "paragraph" || block?.type === "quote" || block?.type === "heading";
+}
+
+function renderIntroBlock(block?: BlogBlock | null) {
+  if (!block) return null;
+
+  switch (block.type) {
+    case "heading":
+      return (
+        <div style={{ width: "100%" }}>
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        </div>
+      );
+    case "quote":
+      return (
+        <div style={{ width: "100%", padding: "36px 42px", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          {block.caption ? (
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontFamily: "Italianno", fontSize: "60px", lineHeight: "72px", color: "#000" }}>{block.caption}</span>
+            </div>
+          ) : null}
+        </div>
+      );
+    default:
+      return (
+        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+      );
+  }
 }
 
 function renderBlock(block: BlogBlock, index: number) {
@@ -192,12 +224,14 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
     };
   }, []);
 
-  const leadText = useMemo(() => (post ? getPostLeadText(post) : ""), [post]);
   const bodyBlocks = post?.blocks || [];
   const personalization = post?.personalization || null;
   const displayAuthor = (personalization?.displayName || post?.authorName || "Sharon Danley").trim();
   const displayRole = (personalization?.role || "Master Beauty Mentor").trim();
   const authorLine = displayRole ? `${displayAuthor}, ${displayRole}` : displayAuthor;
+  const introBlockIndex = bodyBlocks.findIndex((block) => isNarrativeBlock(block));
+  const introBlock = introBlockIndex >= 0 ? bodyBlocks[introBlockIndex] : null;
+  const remainingBlocks = introBlockIndex >= 0 ? bodyBlocks.filter((_, index) => index !== introBlockIndex) : bodyBlocks;
 
   return (
     <SiteLayout background="#fff" includeFooter={true}>
@@ -292,11 +326,11 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                     {authorLine}
                   </div>
                 </div>
-                <div style={{ alignSelf: "stretch" }}>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }}>
-                    {leadText}
-                  </span>
-                </div>
+                {introBlock ? (
+                  <div style={{ alignSelf: "stretch" }}>
+                    {renderIntroBlock(introBlock)}
+                  </div>
+                ) : null}
               </div>
                   <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
                 <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block" }} />
@@ -304,7 +338,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
             </div>
           </div>
 
-          {bodyBlocks.map(renderBlock)}
+          {remainingBlocks.map(renderBlock)}
 
           <div style={{ width: "100%", padding: "10px 116px 0" }}>
             <div style={{ paddingTop: "30px", display: "flex", alignItems: "flex-end", justifyContent: "flex-start", gap: "14px" }}>

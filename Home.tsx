@@ -219,7 +219,7 @@ export default function Home() {
         {/* ── Desktop Hero Content (exact Figma CSS) ── */}
         {/* hero-content: flex row, gap 64px, 1488px wide, 791px tall */}
         <div
-          className="hidden md:flex relative z-10 items-center"
+          className="hidden xl:flex relative z-10 items-center"
           style={{
             width: "1488px",
             maxWidth: "calc(100vw - 40px)",
@@ -309,7 +309,7 @@ export default function Home() {
                   alignSelf: "stretch",
                 }}
               >
-                Design Your Life with Purpose
+                Design Your Life <span style={{ fontSize: "68px", lineHeight: "84px", display: "inline-block", verticalAlign: "baseline" }}>with</span> Purpose
               </p>
               <p
                 style={{
@@ -323,7 +323,7 @@ export default function Home() {
                   alignSelf: "stretch",
                 }}
               >
-                for a Compelling Destiny
+                <span style={{ fontSize: "62px", lineHeight: "78px", display: "inline-block", verticalAlign: "baseline" }}>for a</span> Compelling Destiny
               </p>
             </div>
           </div>
@@ -344,7 +344,7 @@ export default function Home() {
         </div>
 
         {/* Mobile Hero */}
-        <div className="md:hidden w-full relative z-10 pt-20 pb-10">
+        <div className="xl:hidden w-full relative z-10 pt-20 pb-10">
           <img
             src={ASSETS.heroMobile}
             alt="Simply Sharon - Healthy Beauty & Confident Aging"
@@ -355,7 +355,7 @@ export default function Home() {
 
       {/* ── Blogcast Section ── */}
       {/* Desktop Blogcast — 1920px wide, scales like navbar */}
-      <div className="w-full hidden md:block relative" style={{ height: "1286px", overflow: "visible" }}>
+      <div className="w-full hidden xl:block relative" style={{ height: "1286px", overflow: "visible" }}>
         <section
           style={{
             position: "absolute",
@@ -660,7 +660,7 @@ export default function Home() {
       </div>
 
       {/* Mobile Blogcast */}
-      <section className="w-full py-2.5 md:hidden flex flex-col justify-start items-start gap-2.5">
+      <section className="w-full py-2.5 xl:hidden flex flex-col justify-start items-start gap-2.5">
         <div className="self-stretch p-2.5 flex flex-col justify-start items-start gap-[5px] overflow-hidden">
           <div className="self-stretch px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
             <span className="text-center text-black text-[64px] font-normal font-['Italianno']">Blogcast</span>
@@ -725,7 +725,7 @@ export default function Home() {
 
       {/* ── Pay-Forward Digital Make-Betters Section ── */}
       {/* Desktop Make-Betters — 1920px wide, scales like navbar */}
-      <div id="make-betters" className="w-full hidden md:block relative" style={{ height: "1554px" }}>
+      <div id="make-betters" className="w-full hidden xl:block relative" style={{ height: "1554px" }}>
         <section
           style={{
             position: "absolute",
@@ -940,9 +940,10 @@ export default function Home() {
                 src={ASSETS.makeBetterGallery}
                 alt="Make-Better before and after gallery"
                 style={{
-                  width: "613.04px",
-                  alignSelf: "stretch",
-                  objectFit: "cover",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
                   flexShrink: 0,
                 }}
               />
@@ -951,13 +952,13 @@ export default function Home() {
         </section>
       </div>
       {/* Mobile Make-Betters */}
-      <section id="make-betters-mobile" className="w-full md:hidden">
+      <section id="make-betters-mobile" className="w-full xl:hidden">
         <img src={ASSETS.makeBetterMobile} alt="Pay-Forward Digital Make-Betters" className="w-full h-auto block" />
       </section>
 
       {/* ── Real Life Make-Betters Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <div className="w-full hidden md:block relative" style={{ height: "2381px" }}>
+      <div className="w-full hidden xl:block relative" style={{ height: "2381px" }}>
         <section
           style={{
             position: "absolute",
@@ -1207,13 +1208,13 @@ export default function Home() {
         </section>
       </div>
       {/* Mobile Real-Life Make-Betters */}
-      <section className="w-full md:hidden">
+      <section className="w-full xl:hidden">
         <img src={ASSETS.realLifeMakeBettersMobile} alt="Real Life Make-Betters" className="w-full h-auto block" />
       </section>
 
       {/* ── Gray is Gorgeous Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <div className="w-full hidden md:block relative" style={{ height: "2529px" }}>
+      <div className="w-full hidden xl:block relative" style={{ height: "2529px" }}>
         <section
           style={{
             position: "absolute",
@@ -1533,13 +1534,13 @@ export default function Home() {
         </section>
       </div>
       {/* Mobile Gray is Gorgeous */}
-      <section className="w-full md:hidden">
+      <section className="w-full xl:hidden">
         <img src={ASSETS.grayIsGorgeousMobile} alt="Gray is Gorgeous! Own-it Your Way" className="w-full h-auto block" />
       </section>
 
       {/* ── Enjoy Positive LAST-ing Impressions Section ── */}
       {/* Desktop: LAST-ing Impressions — Figma 1920×3050px, bg #D4D4D4, scale transform */}
-      <div id="poise" className="w-full hidden md:block relative" style={{ height: "3050px" }}>
+      <div id="poise" className="w-full hidden xl:block relative" style={{ height: "3050px" }}>
         <section
           style={{
             position: "absolute",
@@ -1809,7 +1810,7 @@ export default function Home() {
       </div>
 
       {/* Mobile LAST-ing Impressions */}
-      <section className="w-full md:hidden flex flex-col justify-start items-center gap-[29px]">
+      <section className="w-full xl:hidden flex flex-col justify-start items-center gap-[29px]">
         <div className="self-stretch flex flex-col justify-start items-start gap-[21px]">
           <div className="self-stretch flex flex-col justify-center items-center gap-2.5">
             <span className="w-[378px] text-center text-black text-[64px] font-normal font-['Italianno']">
@@ -1884,7 +1885,7 @@ export default function Home() {
       </section>
 
       {/* ── Meet Sharon Section — Figma 1920×2605px, scale transform ── */}
-      <div id="about" className="w-full hidden md:block relative" style={{ height: "2605px" }}>
+      <div id="about" className="w-full hidden xl:block relative" style={{ height: "2605px" }}>
         <section
           style={{
             position: "absolute",
@@ -2233,7 +2234,7 @@ export default function Home() {
       </div>
 
       {/* Mobile About Sharon */}
-      <section className="w-full md:hidden">
+      <section className="w-full xl:hidden">
         <img src={ASSETS.aboutSharonMobile} alt="Meet Sharon" className="w-full h-auto block" />
         {/* Gallery Accordion - Mobile */}
         <div className="w-full px-4 py-6 bg-white">
@@ -2272,7 +2273,7 @@ export default function Home() {
       </section>
 
       {/* Mobile Behind the Scenes */}
-      <section className="w-full md:hidden pt-12 pb-6 flex flex-col justify-start items-start gap-[69px]">
+      <section className="w-full xl:hidden pt-12 pb-6 flex flex-col justify-start items-start gap-[69px]">
         <div className="self-stretch flex flex-col justify-start items-start gap-[21px]">
           <div className="self-stretch flex flex-col justify-center items-center gap-2.5">
             <span className="w-[378px] text-center text-black text-[64px] font-normal font-['Italianno']">

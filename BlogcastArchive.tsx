@@ -90,6 +90,11 @@ export default function BlogcastArchive() {
 
   const yearOptions = ["", "2026", "2025", "2024", "2023"];
 
+  const getListingSummary = (post: ArchivePost) => {
+    const summary = stripHtml(post.summary) || post.subtitle || "Read the latest thoughts from the Blogcast archive.";
+    return summary.length > 200 ? `${summary.slice(0, 197).trimEnd()}...` : summary;
+  };
+
   return (
     <SiteLayout background="#fff" includeFooter={true}>
       <ScaledPage watchKey={`${posts.length}-${loading}-${page}-${totalPages}-${selectedMonth}-${selectedYear}`}>
@@ -265,7 +270,7 @@ export default function BlogcastArchive() {
                         <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 36, fontWeight: 400, color: "#ababab" }}>Posted on {formatArchiveDate(post.publishedAt || post.createdAt)}</span>
                       </div>
                       <div style={{ padding: 10, width: "100%", boxSizing: "border-box" as const }}>
-                        <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 400, color: "#000", lineHeight: "46px" }}>{stripHtml(post.summary) || post.subtitle || "Read the latest thoughts from the Blogcast archive."}</span>
+                        <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 400, color: "#000", lineHeight: "46px" }}>{getListingSummary(post)}</span>
                       </div>
                     </div>
                     <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108, flexWrap: "wrap" as const }}>

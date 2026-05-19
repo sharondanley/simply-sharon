@@ -35,7 +35,7 @@ export function SiteNavbar() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 w-full">
       <div
-        className="w-full hidden md:block"
+        className="w-full hidden xl:block"
         style={{
           height: "calc(108px * min(1, calc(100vw / 1920)))",
           overflow: "hidden",
@@ -126,7 +126,7 @@ export function SiteNavbar() {
       </div>
 
       <nav
-        className="w-full flex md:hidden items-center justify-between px-5 z-30"
+        className="w-full flex xl:hidden items-center justify-between px-5 z-30"
         style={{ height: "64px", background: NAVBAR_BG, flexShrink: 0 }}
       >
         <a href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>

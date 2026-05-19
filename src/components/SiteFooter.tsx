@@ -33,7 +33,7 @@ export function SiteFooter() {
     <>
       <div
         id="connect"
-        className="w-full hidden md:block"
+        className="w-full hidden xl:block"
         style={{
           height: "calc(1072px * min(1, calc(100vw / 1920)))",
           overflow: "hidden",
@@ -117,7 +117,7 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <div className="w-full md:hidden" style={{ background: FOOTER_BG, padding: "48px 24px", color: "#FFFFFF" }}>
+      <div className="w-full xl:hidden" style={{ background: FOOTER_BG, padding: "48px 24px", color: "#FFFFFF" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "24px" }}>
           <span style={{ fontFamily: "Italianno, cursive", fontSize: "56px", lineHeight: "70px" }}>Connect with Sharon</span>
           <div style={{ display: "flex", gap: "20px" }}>
