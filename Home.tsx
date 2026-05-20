@@ -1033,7 +1033,7 @@ export default function Home() {
                   height: "179px",
                 }}
               >
-                <a href="/#make-betters">
+                <a href="submission.html">
                   <span
                     style={{
                       fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
@@ -1051,7 +1051,7 @@ export default function Home() {
                     Here’s how to submit your photo →
                   </span>
                 </a>
-                <a href="/#make-betters">
+                <a href="submission.html">
                   <span
                     style={{
                       fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
