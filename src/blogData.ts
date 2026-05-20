@@ -23,6 +23,7 @@ export type BlogBlock = {
   content?: string;
   url?: string;
   caption?: string;
+  fontSize?: number;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];

@@ -241,7 +241,6 @@ export function GridBlockEditor({
 }: GridBlockEditorProps) {
   const normalizedBlock = useMemo(() => normalizeGridBlock(block), [block]);
   const grid = normalizedBlock.grid || { rows: 1, columns: 3 };
-  const [hoverGrid, setHoverGrid] = useState<GridDimensions | null>(null);
   const activeCells = ensureGridCells(grid, normalizedBlock.cells);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -285,59 +284,14 @@ export function GridBlockEditor({
     applyBlock(nextGrid, createExpandedCells(nextGrid, normalizedBlock.cells));
   };
 
-  const selectGrid = (nextGrid: GridDimensions) => {
-    applyBlock(nextGrid, createExpandedCells(nextGrid, normalizedBlock.cells));
-  };
-
-  const previewGrid = hoverGrid || grid;
-
   return (
     <div className="flex flex-col gap-5">
-      <div className={`rounded-2xl border p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-white"}`}>
-        <div className="flex flex-col gap-3">
-          <div>
-            <span className={`block text-sm font-semibold mb-1 ${dark ? "text-gray-200" : "text-gray-800"}`}>Visual Grid Selection</span>
-            <p className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-500"}`}>
-              Hover to preview a layout, then click to create or resize the grid up to 6 rows by 3 columns.
-            </p>
-          </div>
-          <div
-            className="inline-grid gap-1 w-max"
-            style={{ gridTemplateColumns: `repeat(${MAX_GRID_COLUMNS}, minmax(0, 18px))` }}
-            onMouseLeave={() => setHoverGrid(null)}
-          >
-            {Array.from({ length: MAX_GRID_ROWS * MAX_GRID_COLUMNS }, (_, index) => {
-              const row = Math.floor(index / MAX_GRID_COLUMNS) + 1;
-              const column = (index % MAX_GRID_COLUMNS) + 1;
-              const highlighted = row <= previewGrid.rows && column <= previewGrid.columns;
-              return (
-                <button
-                  key={`${row}-${column}`}
-                  type="button"
-                  onMouseEnter={() => setHoverGrid({ rows: row, columns: column })}
-                  onFocus={() => setHoverGrid({ rows: row, columns: column })}
-                  onClick={() => selectGrid({ rows: row, columns: column })}
-                  className={`h-[18px] w-[18px] rounded-sm border transition-colors ${highlighted
-                    ? dark ? "border-white bg-white" : "border-black bg-black"
-                    : dark ? "border-gray-600 bg-transparent hover:border-gray-400" : "border-gray-300 bg-transparent hover:border-gray-500"
-                  }`}
-                  aria-label={`Select ${row} rows and ${column} columns`}
-                />
-              );
-            })}
-          </div>
-          <div className={`text-sm font-bold font-['Source_Sans_3'] ${dark ? "text-gray-200" : "text-gray-800"}`}>
-            {previewGrid.rows} × {previewGrid.columns}
-          </div>
-        </div>
-      </div>
-
       <div className={`rounded-2xl border p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-white"}`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className={`block text-sm font-semibold mb-1 ${dark ? "text-gray-200" : "text-gray-800"}`}>Dynamic Grid Editor</span>
             <p className={`text-sm font-['Source_Sans_3'] ${dark ? "text-gray-400" : "text-gray-500"}`}>
-              Drag cells to reposition them. Existing slot data is preserved when rows or columns are reduced and later restored.
+              Drag cells to reposition them. Existing slot data is preserved when rows or columns are reduced and later restored. Resize controls support up to 6 rows and 3 columns.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">

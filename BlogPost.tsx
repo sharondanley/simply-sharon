@@ -76,10 +76,12 @@ function renderIntroBlock(block?: BlogBlock | null) {
           ) : null}
         </div>
       );
-    default:
+    default: {
+      const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
-        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
       );
+    }
   }
 }
 
@@ -159,12 +161,14 @@ function renderBlock(block: BlogBlock, index: number) {
           <div style={{ width: "100%", borderTop: "1px solid #000" }} />
         </div>
       );
-    default:
+    default: {
+      const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "41px", color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
+    }
   }
 }
 
@@ -232,6 +236,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
   const introBlockIndex = bodyBlocks.findIndex((block) => isNarrativeBlock(block));
   const introBlock = introBlockIndex >= 0 ? bodyBlocks[introBlockIndex] : null;
   const remainingBlocks = introBlockIndex >= 0 ? bodyBlocks.filter((_, index) => index !== introBlockIndex) : bodyBlocks;
+  const publishedLabel = formatArchiveDate(post?.publishedAt || post?.createdAt);
 
   return (
     <SiteLayout background="#fff" includeFooter={true}>
@@ -319,11 +324,11 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
                 <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                  <div style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", fontStyle: "italic", color: "#A3A3A3" }}>
-                    {formatArchiveDate(post.publishedAt || post.createdAt)}{post.episode ? ` | Ep ${post.episode}` : ""}
+                  <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#000", fontWeight: 400 }}>
+                    {publishedLabel}{post.episode ? ` | Ep ${post.episode}` : ""}
                   </div>
-                  <div style={{ marginTop: "10px", fontFamily: "'Source Sans Pro', sans-serif", fontSize: "32px", lineHeight: "40px", color: "#7C7C7C" }}>
-                    {authorLine}
+                  <div style={{ marginTop: "10px", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#000", fontWeight: 400 }}>
+                    {`By: ${authorLine}`}
                   </div>
                 </div>
                 {introBlock ? (
@@ -341,9 +346,12 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
           {remainingBlocks.map(renderBlock)}
 
           <div style={{ width: "100%", padding: "10px 116px 0" }}>
-            <div style={{ paddingTop: "30px", display: "flex", alignItems: "flex-end", justifyContent: "flex-start", gap: "14px" }}>
-              <span style={{ fontFamily: "Italianno", fontSize: "82px", lineHeight: "1", color: "#000" }}>Sharon</span>
-              <img src={ASSETS.heartEmoji} alt="heart" style={{ width: "54px", height: "54px", objectFit: "contain", transform: "translateY(-10px)" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "12px" }}>
+              <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "41px", color: "#000" }}>With Warmth & Wisdom,</span>
+              <div style={{ paddingTop: "8px", display: "flex", alignItems: "flex-end", justifyContent: "flex-start", gap: "14px" }}>
+                <span style={{ fontFamily: "Italianno", fontSize: "82px", lineHeight: "1", color: "#000" }}>Sharon</span>
+                <img src={ASSETS.heartEmoji} alt="heart" style={{ width: "54px", height: "54px", objectFit: "contain", transform: "translateY(-10px)" }} />
+              </div>
             </div>
           </div>
 

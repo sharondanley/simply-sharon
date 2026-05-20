@@ -42,7 +42,7 @@ export default function BlogcastArchive() {
     const timeoutId = window.setTimeout(() => {
       setLoading(true);
       setError("");
-      fetchBlogcastPosts({ page, limit: 4, search, year: selectedYear, month: selectedMonth, sort: sortBy })
+      fetchBlogcastPosts({ page, limit: 10, search, year: selectedYear, month: selectedMonth, sort: sortBy })
         .then((data) => {
           if (cancelled) return;
           setPosts(data.items);
@@ -303,12 +303,12 @@ export default function BlogcastArchive() {
 
           {/* Pagination */}
           <div style={{ paddingTop: 96, paddingBottom: 82, display: "flex", justifyContent: "center", alignItems: "center", gap: 113 }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ height: 86, paddingLeft: 32, paddingRight: 16, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", opacity: page === 1 ? 0.5 : 1 }}>
+            <button onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === 1} style={{ height: 86, paddingLeft: 32, paddingRight: 16, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", opacity: page === 1 ? 0.5 : 1 }}>
               <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, fontWeight: 700, color: "#000" }}>Previous Page</span>
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 35 }}>
               {pageNumbers.map((n) => (
-                <button key={n} onClick={() => setPage(n)} style={{ width: 88, height: 88, background: page === n ? "#111111" : "#dadada", borderRadius: "50%", border: page === n ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === n ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
+                <button key={n} onClick={() => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ width: 88, height: 88, background: page === n ? "#111111" : "#dadada", borderRadius: "50%", border: page === n ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === n ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                   <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === n ? "#fff" : "#000" }}>{n}</span>
                 </button>
               ))}
@@ -317,13 +317,13 @@ export default function BlogcastArchive() {
                   <div style={{ padding: 10 }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>. . .</span>
                   </div>
-                  <button onClick={() => setPage(totalPages)} style={{ width: 88, height: 88, background: page === totalPages ? "#111111" : "#dadada", borderRadius: "50%", border: page === totalPages ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === totalPages ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
+                  <button onClick={() => { setPage(totalPages); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ width: 88, height: 88, background: page === totalPages ? "#111111" : "#dadada", borderRadius: "50%", border: page === totalPages ? "2px solid #9ca3af" : "none", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: page === totalPages ? "0 12px 28px rgba(0, 0, 0, 0.22)" : "none" }}>
                     <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 40, fontWeight: 700, color: page === totalPages ? "#fff" : "#000" }}>{totalPages}</span>
                   </button>
                 </>
               )}
             </div>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ width: 276, height: 86, paddingRight: 50, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === totalPages ? "not-allowed" : "pointer", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 74, opacity: page === totalPages ? 0.5 : 1 }}>
+            <button onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === totalPages} style={{ width: 276, height: 86, paddingRight: 50, paddingTop: 13, paddingBottom: 13, background: "#dadada", borderRadius: 14, border: "none", cursor: page === totalPages ? "not-allowed" : "pointer", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 74, opacity: page === totalPages ? 0.5 : 1 }}>
               <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 36, fontWeight: 700, color: "#000" }}>Next Page</span>
             </button>
           </div>

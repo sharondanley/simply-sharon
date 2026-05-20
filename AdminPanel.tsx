@@ -16,7 +16,7 @@ import { GridBlockEditor } from "./GridBlockEditor";
 import {
   Plus, Trash2, GripVertical, Image, Type, Quote, Video,
   Bold, Italic, Underline, Hash, Eye, EyeOff, Save, ArrowLeft, Upload,
-  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil, MessageSquare, ExternalLink, Search,
+  FileText, Settings, LogOut, X, Heading1, Heading2, Heading3, Moon, Sun, SplitSquareHorizontal, Pencil, MessageSquare, ExternalLink, Search, Minus, Link2,
 } from "lucide-react";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
@@ -34,6 +34,7 @@ type PostItem = {
   subtitle?: string | null;
   thumbnailUrl?: string | null;
   topic?: string | null;
+  episode?: number | null;
   listenUrl?: string | null;
   watchUrl?: string | null;
   showReadButton?: boolean;
@@ -47,6 +48,7 @@ type CreatePostInput = {
   title: string;
   summary?: string;
   topic?: string;
+  episode?: number;
   listenUrl?: string;
   watchUrl?: string;
   showReadButton: boolean;
@@ -186,7 +188,7 @@ const API = {
   },
 
   /** Create a new post. */
-  async createPost(data: CreatePostInput): Promise<{ slug: string }> {
+  async createPost(data: CreatePostInput): Promise<{ slug: string; id?: number }> {
     const r = await fetch("/api/admin/posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -453,6 +455,7 @@ type Block = {
   content?: string;
   url?: string;
   caption?: string;
+  fontSize?: number;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];
@@ -461,6 +464,9 @@ type Block = {
 const MAX_GRID_ROWS = 6;
 const MAX_GRID_COLUMNS = 3;
 const MIN_GRID_SIZE = 1;
+const DEFAULT_PARAGRAPH_FONT_SIZE = 18;
+const MIN_PARAGRAPH_FONT_SIZE = 12;
+const MAX_PARAGRAPH_FONT_SIZE = 72;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
@@ -468,6 +474,20 @@ function generateId() {
 
 function clampGridValue(value: number, max: number) {
   return Math.max(MIN_GRID_SIZE, Math.min(max, Math.round(value || MIN_GRID_SIZE)));
+}
+
+function clampParagraphFontSize(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_PARAGRAPH_FONT_SIZE;
+  return Math.max(MIN_PARAGRAPH_FONT_SIZE, Math.min(MAX_PARAGRAPH_FONT_SIZE, Math.round(normalized)));
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function getLegacyGridDimensions(layout?: GridLayout): GridDimensions {
@@ -530,6 +550,10 @@ function createBlock(type: BlockType): Block {
     };
   }
 
+  if (type === "paragraph") {
+    return { id: generateId(), type, fontSize: DEFAULT_PARAGRAPH_FONT_SIZE };
+  }
+
   return { id: generateId(), type };
 }
 
@@ -538,9 +562,15 @@ function createBlock(type: BlockType): Block {
 function RichTextToolbar({
   editorRef,
   dark,
+  block,
+  onBlockChange,
+  onHtmlChange,
 }: {
   editorRef: React.RefObject<HTMLDivElement | null>;
   dark: boolean;
+  block: Block;
+  onBlockChange: (updated: Block) => void;
+  onHtmlChange: (html: string) => void;
 }) {
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
 
@@ -549,8 +579,10 @@ function RichTextToolbar({
     if (document.queryCommandState("bold")) formats.add("bold");
     if (document.queryCommandState("italic")) formats.add("italic");
     if (document.queryCommandState("underline")) formats.add("underline");
-    const block = document.queryCommandValue("formatBlock");
-    if (block) formats.add(block.toLowerCase());
+    if (document.queryCommandState("insertUnorderedList")) formats.add("ul");
+    if (document.queryCommandState("insertOrderedList")) formats.add("ol");
+    const formatBlock = String(document.queryCommandValue("formatBlock") || "").replace(/[<>]/g, "").toLowerCase();
+    if (formatBlock) formats.add(formatBlock);
     setActiveFormats(formats);
   }, []);
 
@@ -559,33 +591,71 @@ function RichTextToolbar({
     return () => document.removeEventListener("selectionchange", updateActiveFormats);
   }, [updateActiveFormats]);
 
+  const syncHtml = useCallback(() => {
+    if (editorRef.current) {
+      onHtmlChange(editorRef.current.innerHTML);
+    }
+  }, [editorRef, onHtmlChange]);
+
   const exec = (cmd: string, value?: string) => {
     editorRef.current?.focus();
     document.execCommand(cmd, false, value);
     updateActiveFormats();
+    syncHtml();
   };
 
+  const applyLink = () => {
+    const selection = window.getSelection();
+    const savedRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+    const selectedText = selection?.toString() || "";
+    const linkText = window.prompt("Text to display", selectedText || "")?.trim();
+    if (!linkText) return;
+    const rawUrl = window.prompt("Link URL", "https://")?.trim();
+    if (!rawUrl) return;
+    const href = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    editorRef.current?.focus();
+    if (savedRange && selection) {
+      selection.removeAllRanges();
+      selection.addRange(savedRange);
+    }
+    const markup = `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText)}</a>`;
+    document.execCommand("insertHTML", false, markup);
+    updateActiveFormats();
+    syncHtml();
+  };
+
+  const toolButtonClass = (active?: boolean) => `p-2 rounded text-base transition-colors ${
+    active
+      ? dark ? "bg-white text-black" : "bg-black text-white"
+      : dark
+        ? "text-gray-300 hover:bg-gray-600 hover:text-white"
+        : "text-gray-700 hover:bg-gray-200 hover:text-black"
+  }`;
+
   const ToolBtn = ({
-    cmd, value, title, children, active,
+    cmd, value, title, children, active, onPress,
   }: {
-    cmd: string; value?: string; title: string;
-    children: React.ReactNode; active?: boolean;
+    cmd?: string; value?: string; title: string;
+    children: React.ReactNode; active?: boolean; onPress?: () => void;
   }) => (
     <button
       type="button"
-      onMouseDown={(e) => { e.preventDefault(); exec(cmd, value); }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        if (onPress) {
+          onPress();
+          return;
+        }
+        if (cmd) exec(cmd, value);
+      }}
       title={title}
-      className={`p-2 rounded text-base transition-colors ${
-        active
-          ? dark ? "bg-white text-black" : "bg-black text-white"
-          : dark
-            ? "text-gray-300 hover:bg-gray-600 hover:text-white"
-            : "text-gray-700 hover:bg-gray-200 hover:text-black"
-      }`}
+      className={toolButtonClass(active)}
     >
       {children}
     </button>
   );
+
+  const fontSize = clampParagraphFontSize(block.fontSize);
 
   return (
     <div className={`flex items-center gap-0.5 px-3 py-2 border-b flex-wrap ${dark ? "bg-gray-700 border-gray-600" : "bg-gray-100 border-gray-200"}`}>
@@ -598,14 +668,50 @@ function RichTextToolbar({
       <ToolBtn cmd="formatBlock" value="h3" title="Heading 3" active={activeFormats.has("h3")}><Heading3 size={16} /></ToolBtn>
       <ToolBtn cmd="formatBlock" value="p" title="Normal text" active={activeFormats.has("p")}><Type size={16} /></ToolBtn>
       <div className={`w-px h-6 mx-1 ${dark ? "bg-gray-500" : "bg-gray-300"}`} />
-      <ToolBtn cmd="insertUnorderedList" title="Bullet list"><span className="text-sm font-bold leading-none">••</span></ToolBtn>
-      <ToolBtn cmd="insertOrderedList" title="Numbered list"><span className="text-sm font-bold leading-none">1.</span></ToolBtn>
+      <ToolBtn cmd="insertUnorderedList" title="Bullet list" active={activeFormats.has("ul")}><span className="text-sm font-bold leading-none">••</span></ToolBtn>
+      <ToolBtn cmd="insertOrderedList" title="Numbered list" active={activeFormats.has("ol")}><span className="text-sm font-bold leading-none">1.</span></ToolBtn>
+      <ToolBtn title="Make link" onPress={applyLink}><Link2 size={16} /></ToolBtn>
       <div className={`w-px h-6 mx-1 ${dark ? "bg-gray-500" : "bg-gray-300"}`} />
       <ToolBtn cmd="justifyLeft" title="Align left"><span className="text-sm leading-none">≡</span></ToolBtn>
       <ToolBtn cmd="justifyCenter" title="Align center"><span className="text-sm leading-none">≡</span></ToolBtn>
       <ToolBtn cmd="justifyRight" title="Align right"><span className="text-sm leading-none">≡</span></ToolBtn>
       <div className={`w-px h-6 mx-1 ${dark ? "bg-gray-500" : "bg-gray-300"}`} />
       <ToolBtn cmd="removeFormat" title="Clear formatting"><span className="text-sm font-bold leading-none">Tx</span></ToolBtn>
+      {block.type === "paragraph" && (
+        <div className={`ml-auto flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onBlockChange({ ...block, fontSize: clampParagraphFontSize(fontSize - 1) });
+            }}
+            className={toolButtonClass(false)}
+            title="Decrease font size"
+          >
+            <Minus size={14} />
+          </button>
+          <input
+            type="number"
+            min={MIN_PARAGRAPH_FONT_SIZE}
+            max={MAX_PARAGRAPH_FONT_SIZE}
+            value={fontSize}
+            onChange={(e) => onBlockChange({ ...block, fontSize: clampParagraphFontSize(Number(e.target.value) || DEFAULT_PARAGRAPH_FONT_SIZE) })}
+            className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
+            title="Paragraph font size"
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onBlockChange({ ...block, fontSize: clampParagraphFontSize(fontSize + 1) });
+            }}
+            className={toolButtonClass(false)}
+            title="Increase font size"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -635,22 +741,26 @@ function RichTextBlock({
     isInternalUpdate.current = false;
   }, [block.content]);
 
+  const handleHtmlChange = useCallback((html: string) => {
+    isInternalUpdate.current = true;
+    onChange({ ...block, content: html });
+  }, [block, onChange]);
+
   const handleInput = () => {
     if (editorRef.current) {
-      isInternalUpdate.current = true;
-      onChange({ ...block, content: editorRef.current.innerHTML });
+      handleHtmlChange(editorRef.current.innerHTML);
     }
   };
 
   const blockStyles: Record<string, string> = {
-    paragraph: "text-lg leading-relaxed",
+    paragraph: "leading-relaxed",
     heading: "text-3xl font-bold leading-tight",
     quote: "text-xl italic border-l-4 pl-4",
   };
 
   const placeholders: Record<string, string> = {
     paragraph: "Start writing...",
-    heading: "Heading text...",
+    heading: "Title text...",
     quote: "Quote text...",
   };
 
@@ -661,7 +771,15 @@ function RichTextBlock({
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all ${borderColor}`}>
-      {focused && <RichTextToolbar editorRef={editorRef} dark={dark} />}
+      {focused && (
+        <RichTextToolbar
+          editorRef={editorRef}
+          dark={dark}
+          block={block}
+          onBlockChange={onChange}
+          onHtmlChange={handleHtmlChange}
+        />
+      )}
       <div
         ref={editorRef}
         contentEditable
@@ -670,7 +788,11 @@ function RichTextBlock({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         data-placeholder={placeholders[block.type] || "Write here..."}
-        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${textColor} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none`}
+        style={block.type === "paragraph" ? {
+          fontSize: `${clampParagraphFontSize(block.fontSize)}px`,
+          lineHeight: `${Math.round(clampParagraphFontSize(block.fontSize) * 1.55)}px`,
+        } : undefined}
+        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${textColor} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}
       />
     </div>
   );
@@ -786,7 +908,7 @@ function BlockEditor({
             className={inputClass}
           />
           {block.type === "image" && block.url && (
-            <img src={block.url} alt={block.caption || ""} className="max-h-56 object-cover rounded-lg" />
+            <img src={block.url} alt={block.caption || ""} className="w-full max-h-[32rem] object-contain rounded-lg bg-white" />
           )}
           {block.type === "video" && block.url && (
             <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
@@ -860,11 +982,21 @@ function BlockEditor({
 
 // ─── Add-block menu ───────────────────────────────────────────────────────────
 
-function AddBlockMenu({ onAdd, dark }: { onAdd: (type: BlockType) => void; dark: boolean }) {
+function AddBlockMenu({
+  onAdd,
+  dark,
+  buttonLabel = "Add Block",
+  compact = false,
+}: {
+  onAdd: (type: BlockType) => void;
+  dark: boolean;
+  buttonLabel?: string;
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const blockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
     { type: "paragraph", label: "Paragraph", icon: <Type size={18} /> },
-    { type: "heading", label: "Heading", icon: <Hash size={18} /> },
+    { type: "heading", label: "Title", icon: <Hash size={18} /> },
     { type: "quote", label: "Quote", icon: <Quote size={18} /> },
     { type: "image", label: "Image", icon: <Image size={18} /> },
     { type: "video", label: "Video", icon: <Video size={18} /> },
@@ -879,17 +1011,19 @@ function AddBlockMenu({ onAdd, dark }: { onAdd: (type: BlockType) => void; dark:
   const itemClass = dark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700";
 
   return (
-    <div className="relative mt-2">
+    <div className={`relative ${compact ? "mt-1" : "mt-2"}`}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 px-4 py-3 border-2 border-dashed rounded-xl transition-colors w-full justify-center font-['Source_Sans_3'] text-base ${btnClass}`}
+        className={`flex items-center gap-2 border-2 border-dashed rounded-xl transition-colors w-full justify-center font-['Source_Sans_3'] ${compact ? "px-3 py-2 text-sm" : "px-4 py-3 text-base"} ${btnClass}`}
       >
-        <Plus size={18} /> Add Block
+        <Plus size={compact ? 16 : 18} /> {buttonLabel}
       </button>
       {open && (
-        <div className={`absolute top-full left-0 mt-1 border rounded-xl p-2 z-10 grid grid-cols-3 gap-1 w-64 ${menuClass}`}>
+        <div className={`absolute top-full left-0 mt-1 border rounded-xl p-2 z-20 grid grid-cols-3 gap-1 w-72 max-w-[calc(100vw-3rem)] ${menuClass}`}>
           {blockTypes.map(({ type, label, icon }) => (
             <button
+              type="button"
               key={type}
               onClick={() => { onAdd(type); setOpen(false); }}
               className={`flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors text-sm font-['Source_Sans_3'] ${itemClass}`}
@@ -974,7 +1108,7 @@ function PostPreview({
       case "image":
         return block.url ? (
           <figure key={block.id} className="my-5">
-            <img src={block.url} alt={block.caption || ""} className="w-full rounded-lg object-cover max-h-80" />
+            <img src={block.url} alt={block.caption || ""} className="w-full rounded-lg object-contain max-h-80 bg-white" />
             {block.caption && <figcaption className={`text-sm text-center mt-2 font-['Source_Sans_3'] ${subColor}`}>{block.caption}</figcaption>}
           </figure>
         ) : (
@@ -990,14 +1124,20 @@ function PostPreview({
         ) : null;
       case "divider":
         return <hr key={block.id} className={`my-6 ${dividerColor}`} />;
-      default:
+      default: {
+        const paragraphFontSize = clampParagraphFontSize(block.fontSize);
         return (
           <div
             key={block.id}
-            className={`text-lg leading-relaxed mb-4 font-['Source_Sans_3'] ${bodyColor}`}
+            className={`mb-4 font-['Source_Sans_3'] ${bodyColor}`}
+            style={block.type === "paragraph" ? {
+              fontSize: `${paragraphFontSize}px`,
+              lineHeight: `${Math.round(paragraphFontSize * 1.55)}px`,
+            } : undefined}
             dangerouslySetInnerHTML={{ __html: block.content || "" }}
           />
         );
+      }
     }
   };
 
@@ -1040,6 +1180,7 @@ function PostEditor({
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [topic, setTopic] = useState("");
+  const [episode, setEpisode] = useState("");
   const [listenUrl, setListenUrl] = useState("");
   const [watchUrl, setWatchUrl] = useState("");
   const [showReadButton, setShowReadButton] = useState(true);
@@ -1055,8 +1196,13 @@ function PostEditor({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [currentPostId, setCurrentPostId] = useState<number | undefined>(postId);
   const [loadingPost, setLoadingPost] = useState(Boolean(postId));
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCurrentPostId(postId);
+  }, [postId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1080,7 +1226,7 @@ function PostEditor({
   }, []);
 
   useEffect(() => {
-    if (!postId) {
+    if (!currentPostId) {
       setLoadingPost(false);
       return;
     }
@@ -1088,12 +1234,13 @@ function PostEditor({
     let cancelled = false;
     setLoadingPost(true);
 
-    API.getPost(postId)
+    API.getPost(currentPostId)
       .then((post) => {
         if (cancelled) return;
         setTitle(post.title || "");
         setSummary(post.summary || "");
         setTopic(post.topic || "");
+        setEpisode(post.episode != null ? String(post.episode) : "");
         setListenUrl(post.listenUrl || "");
         setWatchUrl(post.watchUrl || "");
         setShowReadButton(post.showReadButton !== false);
@@ -1102,7 +1249,7 @@ function PostEditor({
         setHashtags((post.hashtags || []).join(", "));
         setThumbnailUrl(post.thumbnailUrl || "");
         setThumbnailPreview(post.thumbnailUrl || "");
-        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? normalizeCustomGridBlock(block) : block) : [{ id: generateId(), type: "paragraph", content: "" }]);
+        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? normalizeCustomGridBlock(block) : block) : [{ id: generateId(), type: "paragraph", content: "", fontSize: DEFAULT_PARAGRAPH_FONT_SIZE }]);
         setPublished(Boolean(post.published));
       })
       .catch((err: unknown) => {
@@ -1117,7 +1264,7 @@ function PostEditor({
     return () => {
       cancelled = true;
     };
-  }, [postId]);
+  }, [currentPostId]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1145,7 +1292,14 @@ function PostEditor({
     setThumbnailUrl(normalized);
     setThumbnailPreview(normalized);
   };
-  const addBlock = (type: BlockType) => setBlocks((prev) => [...prev, createBlock(type)]);
+  const addBlockAt = (index: number, type: BlockType) => {
+    setBlocks((prev) => {
+      const nextBlock = createBlock(type);
+      const insertAt = Math.max(0, Math.min(index, prev.length));
+      return [...prev.slice(0, insertAt), nextBlock, ...prev.slice(insertAt)];
+    });
+  };
+  const addBlock = (type: BlockType) => addBlockAt(blocks.length, type);
   const updateBlock = (id: string, updated: Block) => setBlocks((prev) => prev.map((b) => (b.id === id ? updated : b)));
   const deleteBlock = (id: string) => setBlocks((prev) => prev.filter((b) => b.id !== id));
   const moveBlock = (id: string, direction: "up" | "down") => {
@@ -1163,12 +1317,18 @@ function PostEditor({
   const handleSave = async () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
     const hashtagArray = hashtags.split(",").map((h) => h.trim()).filter(Boolean);
+    const parsedEpisode = episode.trim() ? Number.parseInt(episode.trim(), 10) : undefined;
+    if (episode.trim() && (!Number.isInteger(parsedEpisode) || (parsedEpisode ?? 0) < 1)) {
+      toast.error("Episode must be a positive whole number.");
+      return;
+    }
     setSaving(true);
     try {
-      const payload = {
+      const payload: CreatePostInput = {
         title: title.trim(),
         summary: summary.trim() || undefined,
         topic: topic.trim() || undefined,
+        episode: parsedEpisode,
         listenUrl: listenUrl.trim() || undefined,
         watchUrl: watchUrl.trim() || undefined,
         showReadButton,
@@ -1179,14 +1339,14 @@ function PostEditor({
         blocks,
         published,
       };
-      if (postId) {
-        await API.updatePost(postId, payload);
+      if (currentPostId) {
+        await API.updatePost(currentPostId, payload);
       } else {
-        await API.createPost(payload);
+        const created = await API.createPost(payload);
+        if (created.id) setCurrentPostId(created.id);
       }
-      toast.success(postId ? "Post updated successfully!" : "Post saved successfully!");
+      toast.success(currentPostId ? "Post updated successfully!" : "Post saved successfully!");
       onSaved?.();
-      onBack();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast.error(`Failed to save: ${msg}`);
@@ -1251,7 +1411,7 @@ function PostEditor({
             }`}
           >
             <Save size={18} />
-            {saving ? (postId ? "Updating…" : "Saving…") : (postId ? "Update Post" : "Save Post")}
+            {saving ? (currentPostId ? "Updating…" : "Saving…") : (currentPostId ? "Update Post" : "Save Post")}
           </button>
         </div>
       </div>
@@ -1280,17 +1440,21 @@ function PostEditor({
           <div className={`border rounded-xl p-4 pb-24 flex flex-col min-h-80 ${dark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
             <p className={`text-sm font-semibold font-['Source_Sans_3'] mb-3 ${dark ? "text-gray-400" : "text-gray-500"}`}>Content Blocks</p>
             {blocks.map((block, idx) => (
-              <BlockEditor
-                key={block.id}
-                block={block}
-                onChange={(updated) => updateBlock(block.id, updated)}
-                onDelete={() => deleteBlock(block.id)}
-                onMoveUp={() => moveBlock(block.id, "up")}
-                onMoveDown={() => moveBlock(block.id, "down")}
-                isFirst={idx === 0}
-                isLast={idx === blocks.length - 1}
-                dark={dark}
-              />
+              <div key={block.id} className="group/block flex flex-col">
+                <BlockEditor
+                  block={block}
+                  onChange={(updated) => updateBlock(block.id, updated)}
+                  onDelete={() => deleteBlock(block.id)}
+                  onMoveUp={() => moveBlock(block.id, "up")}
+                  onMoveDown={() => moveBlock(block.id, "down")}
+                  isFirst={idx === 0}
+                  isLast={idx === blocks.length - 1}
+                  dark={dark}
+                />
+                <div className="px-10 pt-2 opacity-0 pointer-events-none transition-opacity group-hover/block:opacity-100 group-hover/block:pointer-events-auto group-focus-within/block:opacity-100 group-focus-within/block:pointer-events-auto">
+                  <AddBlockMenu onAdd={(type) => addBlockAt(idx + 1, type)} dark={dark} compact buttonLabel="Insert below" />
+                </div>
+              </div>
             ))}
             <AddBlockMenu onAdd={addBlock} dark={dark} />
           </div>
@@ -1311,7 +1475,7 @@ function PostEditor({
               <h3 className={cardTitleClass}><Image size={16} /> Thumbnail</h3>
               {thumbnailPreview ? (
                 <div className="relative">
-                  <img src={thumbnailPreview} alt="Thumbnail" className="w-full aspect-video object-cover rounded-lg" />
+                  <img src={thumbnailPreview} alt="Thumbnail" className="w-full aspect-video object-contain rounded-lg bg-white" />
                   <button
                     onClick={() => { setThumbnailUrl(""); setThumbnailPreview(""); }}
                     className="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black transition-colors"
@@ -1359,6 +1523,20 @@ function PostEditor({
                   placeholder="Search existing categories or type a new one"
                   className={inputClass}
                 />
+              </div>
+              <div>
+                <label className={labelClass}>Episode Number</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={episode}
+                  onChange={(e) => setEpisode(e.target.value)}
+                  placeholder="e.g. 1"
+                  className={inputClass}
+                />
+              </div>
+              <div className="relative">
                 {categoryMenuOpen && (
                   <div className={`absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border ${dark ? "border-gray-600 bg-gray-800" : "border-gray-200 bg-white"}`}>
                     {categoryOptions.filter((category) => {

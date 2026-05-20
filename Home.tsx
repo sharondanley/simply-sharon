@@ -2089,7 +2089,7 @@ export default function Home() {
 
       <div id="about" style={{ scrollMarginTop: "120px" }} />
       {/* ── Meet Sharon Section — scaled desktop layout sized to its content ── */}
-      <div className="w-full hidden xl:block relative overflow-hidden" style={{ height: `calc(${aboutDesktopHeight}px * min(1, calc(100vw / 1920)))` }}>
+      <div className="w-full hidden xl:block relative overflow-hidden" style={{ height: Math.ceil(aboutDesktopHeight * (typeof window !== "undefined" ? Math.min(1, window.innerWidth / 1920) : 1)) }}>
         <section
           ref={aboutDesktopRef}
           style={{
