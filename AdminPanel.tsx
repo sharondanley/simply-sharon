@@ -249,8 +249,11 @@ const API = {
   },
 
   /** Return post counts for the dashboard. */
-  async getStats(): Promise<DashboardStats> {
-    const r = await fetch(`/api/admin/stats?_ts=${Date.now()}`, {
+  async getStats(filters?: { from?: string; to?: string }): Promise<DashboardStats> {
+    const query = new URLSearchParams({ _ts: String(Date.now()) });
+    if (filters?.from?.trim()) query.set("from", filters.from.trim());
+    if (filters?.to?.trim()) query.set("to", filters.to.trim());
+    const r = await fetch(`/api/admin/stats?${query.toString()}`, {
       credentials: "same-origin",
       cache: "no-store",
     });
@@ -456,6 +459,7 @@ type Block = {
   url?: string;
   caption?: string;
   fontSize?: number;
+  textColor?: string;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];
@@ -479,6 +483,15 @@ function clampGridValue(value: number, max: number) {
 function clampParagraphFontSize(value?: number) {
   const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_PARAGRAPH_FONT_SIZE;
   return Math.max(MIN_PARAGRAPH_FONT_SIZE, Math.min(MAX_PARAGRAPH_FONT_SIZE, Math.round(normalized)));
+}
+
+function normalizeHexColor(value: string | undefined, fallback: string) {
+  const raw = (value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw;
+  if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`;
+  }
+  return fallback;
 }
 
 function escapeHtml(value: string) {
@@ -597,12 +610,39 @@ function RichTextToolbar({
     }
   }, [editorRef, onHtmlChange]);
 
+  const selectionBelongsToEditor = useCallback((requireExpanded = false) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return false;
+    if (requireExpanded && selection.isCollapsed) return false;
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+    return !!editorRef.current && !!container && editorRef.current.contains(container);
+  }, [editorRef]);
+
   const exec = (cmd: string, value?: string) => {
     editorRef.current?.focus();
     document.execCommand(cmd, false, value);
     updateActiveFormats();
     syncHtml();
   };
+
+  const applySelectedFontSize = useCallback((nextFontSize: number) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("fontSize", false, "7");
+    editorRef.current.querySelectorAll('font[size="7"]').forEach((node) => {
+      const span = document.createElement("span");
+      span.style.fontSize = `${nextFontSize}px`;
+      span.style.lineHeight = `${Math.round(nextFontSize * 1.55)}px`;
+      span.innerHTML = node.innerHTML;
+      node.replaceWith(span);
+    });
+    updateActiveFormats();
+    syncHtml();
+  }, [editorRef, syncHtml, updateActiveFormats]);
 
   const applyLink = () => {
     const selection = window.getSelection();
@@ -656,6 +696,17 @@ function RichTextToolbar({
   );
 
   const fontSize = clampParagraphFontSize(block.fontSize);
+  const defaultTextColor = dark ? "#f3f4f6" : "#111827";
+  const pickerColor = normalizeHexColor(block.textColor, defaultTextColor);
+
+  const handleFontSizeChange = (nextValue: number) => {
+    const nextFontSize = clampParagraphFontSize(nextValue);
+    if (selectionBelongsToEditor(true)) {
+      applySelectedFontSize(nextFontSize);
+      return;
+    }
+    onBlockChange({ ...block, fontSize: nextFontSize });
+  };
 
   return (
     <div className={`flex items-center gap-0.5 px-3 py-2 border-b flex-wrap ${dark ? "bg-gray-700 border-gray-600" : "bg-gray-100 border-gray-200"}`}>
@@ -677,13 +728,34 @@ function RichTextToolbar({
       <ToolBtn cmd="justifyRight" title="Align right"><span className="text-sm leading-none">≡</span></ToolBtn>
       <div className={`w-px h-6 mx-1 ${dark ? "bg-gray-500" : "bg-gray-300"}`} />
       <ToolBtn cmd="removeFormat" title="Clear formatting"><span className="text-sm font-bold leading-none">Tx</span></ToolBtn>
+      <div className={`ml-auto flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em]">Color</span>
+        <input
+          type="color"
+          value={pickerColor}
+          onChange={(e) => onBlockChange({ ...block, textColor: e.target.value })}
+          className="h-8 w-10 cursor-pointer rounded border border-transparent bg-transparent p-0"
+          title="Block text colour"
+        />
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onBlockChange({ ...block, textColor: undefined });
+          }}
+          className={`rounded px-2 py-1 text-xs font-bold transition-colors ${dark ? "text-gray-300 hover:bg-gray-600 hover:text-white" : "text-gray-600 hover:bg-gray-200 hover:text-black"}`}
+          title="Reset to default text colour"
+        >
+          Auto
+        </button>
+      </div>
       {block.type === "paragraph" && (
-        <div className={`ml-auto flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
+        <div className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
           <button
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              onBlockChange({ ...block, fontSize: clampParagraphFontSize(fontSize - 1) });
+              handleFontSizeChange(fontSize - 1);
             }}
             className={toolButtonClass(false)}
             title="Decrease font size"
@@ -695,7 +767,14 @@ function RichTextToolbar({
             min={MIN_PARAGRAPH_FONT_SIZE}
             max={MAX_PARAGRAPH_FONT_SIZE}
             value={fontSize}
-            onChange={(e) => onBlockChange({ ...block, fontSize: clampParagraphFontSize(Number(e.target.value) || DEFAULT_PARAGRAPH_FONT_SIZE) })}
+            onChange={(e) => {
+              const rawValue = e.target.value.trim();
+              if (!rawValue) {
+                onBlockChange({ ...block, fontSize: DEFAULT_PARAGRAPH_FONT_SIZE });
+                return;
+              }
+              handleFontSizeChange(Number(rawValue));
+            }}
             className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
             title="Paragraph font size"
           />
@@ -703,7 +782,7 @@ function RichTextToolbar({
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              onBlockChange({ ...block, fontSize: clampParagraphFontSize(fontSize + 1) });
+              handleFontSizeChange(fontSize + 1);
             }}
             className={toolButtonClass(false)}
             title="Increase font size"
@@ -727,6 +806,7 @@ function RichTextBlock({
   onChange: (updated: Block) => void;
   dark: boolean;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
   const isInternalUpdate = useRef(false);
@@ -765,12 +845,32 @@ function RichTextBlock({
   };
 
   const borderColor = dark ? "border-gray-600 focus-within:border-gray-400" : "border-gray-200 focus-within:border-black";
-  const quoteColor = dark ? "border-gray-400 text-gray-300" : "border-gray-500 text-gray-700";
-  const textColor = dark ? "text-gray-100" : "text-gray-900";
+  const quoteColor = dark ? "border-gray-400" : "border-gray-500";
   const placeholderColor = dark ? "empty:before:text-gray-500" : "empty:before:text-gray-400";
+  const resolvedTextColor = block.textColor || (dark ? "#f3f4f6" : "#111827");
+  const editorStyle = block.type === "paragraph"
+    ? {
+        fontSize: `${clampParagraphFontSize(block.fontSize)}px`,
+        lineHeight: `${Math.round(clampParagraphFontSize(block.fontSize) * 1.55)}px`,
+        color: resolvedTextColor,
+      }
+    : { color: resolvedTextColor };
 
   return (
-    <div className={`border rounded-lg overflow-hidden transition-all ${borderColor}`}>
+    <div
+      ref={containerRef}
+      className={`border rounded-lg overflow-hidden transition-all ${borderColor}`}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(e) => {
+        const nextTarget = e.relatedTarget as Node | null;
+        if (nextTarget && containerRef.current?.contains(nextTarget)) return;
+        window.setTimeout(() => {
+          const activeElement = document.activeElement;
+          if (activeElement && containerRef.current?.contains(activeElement)) return;
+          setFocused(false);
+        }, 0);
+      }}
+    >
       {focused && (
         <RichTextToolbar
           editorRef={editorRef}
@@ -785,14 +885,9 @@ function RichTextBlock({
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         data-placeholder={placeholders[block.type] || "Write here..."}
-        style={block.type === "paragraph" ? {
-          fontSize: `${clampParagraphFontSize(block.fontSize)}px`,
-          lineHeight: `${Math.round(clampParagraphFontSize(block.fontSize) * 1.55)}px`,
-        } : undefined}
-        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${textColor} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}
+        style={editorStyle}
+        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}
       />
     </div>
   );
@@ -956,7 +1051,7 @@ function BlockEditor({
   const badgeBg = dark ? "bg-gray-600 text-gray-300" : "bg-gray-200 text-gray-600";
   const arrowColor = dark ? "text-gray-400 hover:text-white" : "text-gray-400 hover:text-black";
   const gripColor = dark ? "text-gray-600" : "text-gray-300";
-  const deleteColor = dark ? "text-gray-600 hover:text-red-400" : "text-gray-300 hover:text-red-500";
+  const deleteColor = dark ? "text-red-300 hover:text-red-200 border border-red-900/70 hover:bg-red-900/30" : "text-red-500 hover:text-red-600 border border-red-200 hover:bg-red-50";
 
   return (
     <div className={`group relative flex gap-3 items-start p-3 rounded-xl transition-all ${hoverBg}`}>
@@ -973,8 +1068,8 @@ function BlockEditor({
         <BlockIcon type={block.type} />
       </div>
       <div className="flex-1 min-w-0">{renderInput()}</div>
-      <button onClick={onDelete} className={`shrink-0 mt-2 p-1.5 opacity-0 group-hover:opacity-100 transition-all ${deleteColor}`} title="Delete block">
-        <Trash2 size={16} />
+      <button onClick={onDelete} className={`shrink-0 mt-2 rounded-lg p-2 opacity-75 group-hover:opacity-100 transition-all ${deleteColor}`} title="Delete block">
+        <Trash2 size={18} />
       </button>
     </div>
   );
@@ -1057,6 +1152,7 @@ function PostPreview({
           <h2
             key={block.id}
             className={`text-3xl font-bold font-['Source_Sans_3'] leading-tight mb-4 ${titleColor}`}
+            style={{ color: block.textColor || (dark ? "#ffffff" : "#111827") }}
             dangerouslySetInnerHTML={{ __html: block.content || "<em>Heading</em>" }}
           />
         );
@@ -1065,10 +1161,11 @@ function PostPreview({
           <div key={block.id} className={`my-5 rounded-[28px] px-8 py-10 text-center ${dark ? "bg-gray-800" : "bg-gray-200"}`}>
             <blockquote
               className={`text-2xl font-bold leading-relaxed font-['Source_Sans_3'] ${dark ? "text-white" : "text-black"}`}
+              style={{ color: block.textColor || (dark ? "#ffffff" : "#000000") }}
               dangerouslySetInnerHTML={{ __html: block.content || "<em>Quote</em>" }}
             />
             {block.caption && (
-              <div className={`mt-5 pr-4 text-right text-3xl leading-none font-['Italianno'] ${dark ? "text-gray-200" : "text-gray-800"}`}>
+              <div className={`mt-5 pr-4 text-right text-3xl leading-none font-['Italianno'] ${dark ? "text-gray-200" : "text-gray-800"}`} style={{ color: block.textColor || (dark ? "#e5e7eb" : "#1f2937") }}>
                 {block.caption}
               </div>
             )}
@@ -1133,6 +1230,7 @@ function PostPreview({
             style={block.type === "paragraph" ? {
               fontSize: `${paragraphFontSize}px`,
               lineHeight: `${Math.round(paragraphFontSize * 1.55)}px`,
+              color: block.textColor || (dark ? "#e5e7eb" : "#1f2937"),
             } : undefined}
             dangerouslySetInnerHTML={{ __html: block.content || "" }}
           />
@@ -2270,6 +2368,8 @@ export default function AdminPanel() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
+  const [commentFilterFrom, setCommentFilterFrom] = useState("");
+  const [commentFilterTo, setCommentFilterTo] = useState("");
   const [personalization, setPersonalization] = useState<AdminPersonalization>(DEFAULT_PERSONALIZATION);
   const [savingPersonalization, setSavingPersonalization] = useState(false);
   const [uploadingPersonalizationImage, setUploadingPersonalizationImage] = useState<null | "profile" | "inspiration">(null);
@@ -2289,10 +2389,10 @@ export default function AdminPanel() {
       return;
     }
 
-    API.getStats()
+    API.getStats({ from: commentFilterFrom, to: commentFilterTo })
       .then(setStats)
       .catch(() => {/* stats are non-critical; UI shows "—" on failure */});
-  }, [user, dashboardRefreshKey]);
+  }, [user, dashboardRefreshKey, commentFilterFrom, commentFilterTo]);
 
   useEffect(() => {
     if (!user) return;
@@ -2608,14 +2708,46 @@ export default function AdminPanel() {
               <PostsList onEdit={startEditingPost} onNew={startNewPost} dark={dark} refreshKey={postsRefreshKey} onChanged={refreshDashboardData} />
             </div>
             <div className={`rounded-xl border p-6 ${cardBg}`}>
-              <div className="flex items-center justify-between mb-5">
-                <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Top Posts by Comment Count</h3>
-                <button onClick={() => setView("comments")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
-                  Moderate comments →
-                </button>
+              <div className="flex flex-col gap-4 mb-5">
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-lg font-bold font-['Source_Sans_3'] ${textPrimary}`}>Top Posts by Comment Count</h3>
+                  <button onClick={() => setView("comments")} className={`text-base font-['Source_Sans_3'] transition-colors ${textMuted}`}>
+                    Moderate comments →
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="flex flex-col gap-1">
+                    <span className={`text-xs font-bold uppercase tracking-[0.18em] font-['Source_Sans_3'] ${textMuted}`}>From</span>
+                    <input
+                      type="date"
+                      value={commentFilterFrom}
+                      onChange={(e) => setCommentFilterFrom(e.target.value)}
+                      className={`px-3 py-2.5 rounded-lg border text-sm font-['Source_Sans_3'] ${dark ? "border-gray-600 bg-gray-900 text-gray-100" : "border-gray-300 bg-white text-gray-900"}`}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className={`text-xs font-bold uppercase tracking-[0.18em] font-['Source_Sans_3'] ${textMuted}`}>To</span>
+                    <input
+                      type="date"
+                      value={commentFilterTo}
+                      onChange={(e) => setCommentFilterTo(e.target.value)}
+                      className={`px-3 py-2.5 rounded-lg border text-sm font-['Source_Sans_3'] ${dark ? "border-gray-600 bg-gray-900 text-gray-100" : "border-gray-300 bg-white text-gray-900"}`}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCommentFilterFrom("");
+                      setCommentFilterTo("");
+                    }}
+                    className={`px-4 py-2.5 rounded-lg border text-sm font-bold font-['Source_Sans_3'] transition-colors ${dark ? "border-gray-600 text-gray-200 hover:bg-gray-700" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
               {(stats?.commentsByPost || []).length === 0 ? (
-                <p className={`font-['Source_Sans_3'] ${textMuted}`}>No comment activity yet.</p>
+                <p className={`font-['Source_Sans_3'] ${textMuted}`}>No comment activity found for the selected period.</p>
               ) : (
                 <div className="space-y-3">
                   {(stats?.commentsByPost || []).map((item) => (

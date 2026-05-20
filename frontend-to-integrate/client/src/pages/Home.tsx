@@ -48,7 +48,7 @@ const ASSETS = {
   rlmbEvening: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/rlmb-evening_cf80d24c.webp",
   realLifeMakeBettersDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/92-3_2de42173.webp",
   realLifeMakeBettersMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-72_0756d509.webp",
-  gigVideoThumb: "https://img.youtube.com/vi/BzJqAqAdC2c/maxresdefault.jpg",
+  gigVideoThumb: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-video-thumb_911d6b6f.webp",
   gigFaces: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-faces_ad19bfd5.webp",
   gigCard1: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card1_71ea00fc.webp",
   gigCard2: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card2_73f2543c.webp",

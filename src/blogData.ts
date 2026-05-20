@@ -24,6 +24,7 @@ export type BlogBlock = {
   url?: string;
   caption?: string;
   fontSize?: number;
+  textColor?: string;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];

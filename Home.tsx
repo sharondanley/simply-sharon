@@ -1033,7 +1033,7 @@ export default function Home() {
                   height: "179px",
                 }}
               >
-                <a href="submission.html">
+                <a href="/submission.html">
                   <span
                     style={{
                       fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
@@ -1051,7 +1051,7 @@ export default function Home() {
                     Here’s how to submit your photo →
                   </span>
                 </a>
-                <a href="submission.html">
+                <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTsFFV48yAw0NwTkr69NjcZU" target="_blank" rel="noopener noreferrer">
                   <span
                     style={{
                       fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
@@ -1583,6 +1583,8 @@ export default function Home() {
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "28px",
+                borderRadius: "18px",
+                overflow: "hidden",
               }}
             >
               <div style={{ alignSelf: "stretch", padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px" }}>
@@ -1645,6 +1647,8 @@ export default function Home() {
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: "27px",
+                borderRadius: "18px",
+                overflow: "hidden",
               }}
             >
               <div

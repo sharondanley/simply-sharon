@@ -1121,6 +1121,24 @@ app.patch('/api/admin/posts/:id/unlist', authMiddleware, async (req, res) => {
 
 app.get('/api/admin/stats', authMiddleware, async (req, res) => {
     try {
+        const from = typeof req.query.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from) ? req.query.from : null;
+        const to = typeof req.query.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to) ? req.query.to : null;
+        const commentJoinFilters = [];
+        const commentJoinParams = [];
+
+        if (from) {
+            commentJoinFilters.push('c.created_at >= ?');
+            commentJoinParams.push(`${from} 00:00:00`);
+        }
+        if (to) {
+            commentJoinFilters.push('c.created_at < DATE_ADD(?, INTERVAL 1 DAY)');
+            commentJoinParams.push(to);
+        }
+
+        const commentJoinClause = commentJoinFilters.length
+            ? `LEFT JOIN comments c ON c.post_id = p.id AND ${commentJoinFilters.join(' AND ')}`
+            : 'LEFT JOIN comments c ON c.post_id = p.id';
+
         const [[{ total }]] = await dbPromise.query(
             'SELECT COUNT(*) AS total FROM posts WHERE deleted_at IS NULL'
         );
@@ -1133,11 +1151,12 @@ app.get('/api/admin/stats', authMiddleware, async (req, res) => {
         const [commentsByPost] = await dbPromise.query(
             `SELECT p.id AS postId, p.title AS postTitle, p.slug AS postSlug, COUNT(c.id) AS commentsCount
              FROM posts p
-             LEFT JOIN comments c ON c.post_id = p.id
+             ${commentJoinClause}
              WHERE p.deleted_at IS NULL
              GROUP BY p.id, p.title, p.slug
              ORDER BY commentsCount DESC, p.created_at DESC
-             LIMIT 10`
+             LIMIT 10`,
+            commentJoinParams
         );
         res.json({
             total: Number(total),

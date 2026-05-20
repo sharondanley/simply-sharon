@@ -62,16 +62,16 @@ function renderIntroBlock(block?: BlogBlock | null) {
     case "heading":
       return (
         <div style={{ width: "100%" }}>
-          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
     case "quote":
       return (
         <div style={{ width: "100%", padding: "36px 42px", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", gap: "24px" }}>
-          <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
           {block.caption ? (
             <div style={{ textAlign: "right" }}>
-              <span style={{ fontFamily: "Italianno", fontSize: "60px", lineHeight: "72px", color: "#000" }}>{block.caption}</span>
+              <span style={{ fontFamily: "Italianno", fontSize: "60px", lineHeight: "72px", color: block.textColor || "#000" }}>{block.caption}</span>
             </div>
           ) : null}
         </div>
@@ -79,7 +79,7 @@ function renderIntroBlock(block?: BlogBlock | null) {
     default: {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
-        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
       );
     }
   }
@@ -90,7 +90,7 @@ function renderBlock(block: BlogBlock, index: number) {
     case "heading":
       return (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "16px 116px 10px" }}>
-          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "48px", lineHeight: "55px", fontWeight: 700, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
     case "quote":
@@ -98,11 +98,11 @@ function renderBlock(block: BlogBlock, index: number) {
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px", display: "flex", flexDirection: "column", gap: "28px" }}>
           <div style={{ alignSelf: "stretch", padding: "44px 52px 34px", background: "#D9D9D9", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "center", gap: "28px" }}>
             <div style={{ maxWidth: "1180px", textAlign: "center" }}>
-              <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+              <div style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "40px", lineHeight: "50px", fontWeight: 700, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
             </div>
             {block.caption && (
               <div style={{ width: "100%", paddingRight: "74px", textAlign: "right" }}>
-                <span style={{ fontFamily: "Italianno", fontSize: "64px", lineHeight: "80px", color: "#000" }}>{block.caption}</span>
+                <span style={{ fontFamily: "Italianno", fontSize: "64px", lineHeight: "80px", color: block.textColor || "#000" }}>{block.caption}</span>
               </div>
             )}
           </div>
@@ -165,7 +165,7 @@ function renderBlock(block: BlogBlock, index: number) {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
     }
@@ -338,7 +338,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                 ) : null}
               </div>
                   <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
-                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block" }} />
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block", boxShadow: "0 22px 48px rgba(0, 0, 0, 0.24)" }} />
               </div>
             </div>
           </div>
