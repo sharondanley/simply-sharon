@@ -5,17 +5,17 @@
  * Colors: Dark charcoal/gray backgrounds, white text on dark, black text on white
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Mail, Youtube, Facebook } from "lucide-react";
 import { SiteLayout } from "./src/components/SiteLayout";
 
 // ─── Nav Items ───────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { label: "Blogcast", href: "/blogcast" },
+  { label: "Blogcast", href: "/#blogcast" },
   { label: "Make-Betters", href: "/#make-betters" },
   { label: "Poise", href: "/#poise" },
   { label: "About", href: "/#about" },
-  { label: "Archives", href: "/blogcast" },
+  { label: "Archives", href: "https://sharondanley.com/Blog.htm" },
   { label: "Contact", href: "/#connect" },
 ];
 
@@ -46,10 +46,10 @@ const ASSETS = {
   rlmbEvening: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/rlmb-evening_cf80d24c.webp",
   realLifeMakeBettersDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/92-3_2de42173.webp",
   realLifeMakeBettersMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-72_0756d509.webp",
-  gigVideoThumb: "https://img.youtube.com/vi/BzJqAqAdC2c/maxresdefault.jpg",
+  gigVideoThumb: "https://img.youtube.com/vi/BzJqAqAdC2c/hqdefault.jpg",
   gigFaces: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-faces_ad19bfd5.webp",
-  gigCard1: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card1_71ea00fc.webp",
-  gigCard2: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/gig-card2_73f2543c.webp",
+  gigCard1: "https://img.youtube.com/vi/gq-kN3GFlqg/hqdefault.jpg",
+  gigCard2: "https://img.youtube.com/vi/UPR-uxPlDu4/hqdefault.jpg",
   grayIsGorgeousDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/93-53_88b9047e.webp",
   grayIsGorgeousMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-91_08f34d98.webp",
   // About Sharon portrait (Figma 98-280)
@@ -60,7 +60,7 @@ const ASSETS = {
   collageDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/106-400_fadc236a.webp",
   collageMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-253_1c63c9e9.webp",
   // LAST-ing Impressions YouTube screenshots
-  lastingYt1: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt1_67bb67e0.webp",
+  lastingYt1: "/lasting-yt1-custom.png",
   lastingYt2: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt2_f83b8dd6.webp",
   lastingYt3: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt3_82a05891.webp",
   lastingYt4: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt4_9edd7bbb.webp",
@@ -105,15 +105,32 @@ const ASSETS = {
 const GALLERY_CATEGORIES = [
   {
     label: "Makeup",
-    items: ["Ordinary to Extraordinary", "Golden Girls", "Eyebrows", "Bridal", "Males"],
-  },
-  {
-    label: "SFX",
-    items: ["Characters 1", "Characters 2", "Film", "TV", "Bus. SFX", "Facepainting"],
+    items: [
+      { label: "Ordinary to Extraordinary", href: "https://sharondanley.com/before-after-makeovers.htm" },
+      { label: "Golden Girls/Glamour Girls", href: "https://sharondanley.com/mature%20makeovers%20glamour%20girls.html" },
+      { label: "Eyebrows", href: "https://sharondanley.com/eyebrows.htm" },
+      { label: "Bridal", href: "https://sharondanley.com/bridesbeautiful.htm" },
+      { label: "Males", href: "https://sharondanley.com/media%20ready%20males.html" },
+    ],
   },
   {
     label: "Hairstyling",
-    items: ["Historical/Fashion/Character", "Updos", "Short & Long", "Vintage", "Thin Hair Help"],
+    items: [
+      { label: "Historical/Fashion/Character", href: "https://sharondanley.com/hairstyling.html" },
+      { label: "Updos", href: "https://sharondanley.com/hairstyles-chignons-updos.html" },
+      { label: "Short & Long", href: "https://sharondanley.com/hairstyles-short-long.html" },
+      { label: "Vintage", href: "https://sharondanley.com/hairstyles-vintage.html" },
+      { label: "Thin Hair Help", href: "https://sharondanley.com/thin%20hair%20solutions.html" },
+    ],
+  },
+  {
+    label: "SFX Links",
+    items: [
+      { label: "Characters 1", href: "https://sharondanley.com/alanparkcharacters.html" },
+      { label: "Characters 2", href: "https://sharondanley.com/more-characters.html" },
+      { label: "Film, TV, Bus. SFX", href: "https://sharondanley.com/makeup.html" },
+      { label: "Facepainting", href: "https://sharondanley.com/face-painting.htm" },
+    ],
   },
 ];
 
@@ -127,6 +144,7 @@ function GalleryAccordion() {
       {GALLERY_CATEGORIES.map((cat, idx) => (
         <div key={cat.label} className="border border-black rounded-lg overflow-hidden">
           <button
+            type="button"
             className="w-full flex items-center justify-between px-6 py-4 bg-white hover:bg-gray-50 transition-colors"
             onClick={() => setOpenIdx(openIdx === idx ? null : idx)}
           >
@@ -137,18 +155,119 @@ function GalleryAccordion() {
             <div className="px-6 py-4 bg-gray-50 flex flex-wrap gap-3">
               {cat.items.map((item) => (
                 <a
-                  key={item}
-                  href="#"
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-['Source_Sans_3'] text-black hover:bg-black hover:text-white transition-colors"
-                  onClick={(e) => e.preventDefault()}
                 >
-                  {item}
+                  {item.label}
                 </a>
               ))}
             </div>
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function DesktopGalleryDropdowns() {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const activeCategory = openIdx === null ? null : GALLERY_CATEGORIES[openIdx];
+
+  return (
+    <div
+      style={{
+        alignSelf: "stretch",
+        padding: "0px 20px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "28px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          gap: "32px",
+          flexWrap: "wrap",
+        }}
+      >
+        {GALLERY_CATEGORIES.map((cat, idx) => {
+          const isOpen = openIdx === idx;
+          return (
+            <button
+              key={cat.label}
+              type="button"
+              onClick={() => setOpenIdx(isOpen ? null : idx)}
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                padding: "9px 20px",
+                gap: "14px",
+                background: "rgba(69, 69, 69, 0.60)",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                  fontWeight: 700,
+                  fontSize: "40px",
+                  lineHeight: "50px",
+                  textAlign: "center",
+                  color: "#FFFFFF",
+                }}
+              >
+                {cat.label}
+              </span>
+              {isOpen ? <ChevronUp color="#FFFFFF" size={26} /> : <ChevronDown color="#FFFFFF" size={26} />}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeCategory ? (
+        <div
+          style={{
+            width: "100%",
+            padding: "24px 28px",
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: "18px",
+            background: "rgba(69, 69, 69, 0.42)",
+          }}
+        >
+          {activeCategory.items.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: "12px 22px",
+                border: "2px solid #FFFFFF",
+                borderRadius: "999px",
+                color: "#FFFFFF",
+                textDecoration: "none",
+                fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                fontWeight: 700,
+                fontSize: "28px",
+                lineHeight: "34px",
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -193,6 +312,33 @@ const heroRayOverlay = {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Home() {
+  const aboutDesktopRef = useRef<HTMLElement | null>(null);
+  const [aboutDesktopHeight, setAboutDesktopHeight] = useState(2100);
+
+  useEffect(() => {
+    const updateAboutDesktopHeight = () => {
+      if (aboutDesktopRef.current) {
+        setAboutDesktopHeight(Math.ceil(aboutDesktopRef.current.scrollHeight));
+      }
+    };
+
+    updateAboutDesktopHeight();
+    window.addEventListener("resize", updateAboutDesktopHeight);
+
+    const observer = typeof ResizeObserver !== "undefined" && aboutDesktopRef.current
+      ? new ResizeObserver(() => updateAboutDesktopHeight())
+      : null;
+
+    if (observer && aboutDesktopRef.current) {
+      observer.observe(aboutDesktopRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateAboutDesktopHeight);
+      observer?.disconnect();
+    };
+  }, []);
+
   return (
     <SiteLayout background="#fff" includeFooter={true}>
       <div className="w-full bg-white flex flex-col items-center overflow-hidden">
@@ -353,6 +499,7 @@ export default function Home() {
         </div>
       </section>
 
+      <div id="blogcast" style={{ scrollMarginTop: "120px" }} />
       {/* ── Blogcast Section ── */}
       {/* Desktop Blogcast — 1920px wide, scales like navbar */}
       <div className="w-full hidden xl:block relative" style={{ height: "1286px", overflow: "visible" }}>
@@ -723,9 +870,10 @@ export default function Home() {
         </div>
       </section>
 
+      <div id="make-betters" style={{ scrollMarginTop: "120px" }} />
       {/* ── Pay-Forward Digital Make-Betters Section ── */}
       {/* Desktop Make-Betters — 1920px wide, scales like navbar */}
-      <div id="make-betters" className="w-full hidden xl:block relative" style={{ height: "1554px" }}>
+      <div className="w-full hidden xl:block relative" style={{ height: "1554px" }}>
         <section
           style={{
             position: "absolute",
@@ -1311,15 +1459,25 @@ export default function Home() {
               height: "600px",
             }}
           >
-            <img
-              src={ASSETS.gigVideoThumb}
-              alt="Going Gray & Lovin' It - Sharon Danley's Transition"
+            <div
               style={{
                 width: "1013px",
                 height: "580px",
-                objectFit: "cover",
+                overflow: "hidden",
+                background: "#000000",
               }}
-            />
+            >
+              <iframe
+                src="https://www.youtube.com/embed/BzJqAqAdC2c?rel=0&modestbranding=1"
+                title="Sharon's Journey to Gray Hair Freedom"
+                width="1013"
+                height="580"
+                style={{ border: 0, display: "block" }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
           </div>
 
           {/* faces-gallery: 1181×254px */}
@@ -1428,17 +1586,26 @@ export default function Home() {
               }}
             >
               <div style={{ alignSelf: "stretch", padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px" }}>
-                <img
-                  src={ASSETS.gigCard1}
-                  alt="Young and Gray video thumbnail"
+                <div
                   style={{
                     alignSelf: "stretch",
+                    width: "100%",
                     height: "382px",
-                    objectFit: "cover",
                     border: "4px solid #000000",
                     boxSizing: "border-box",
+                    overflow: "hidden",
+                    background: "#000000",
                   }}
-                />
+                >
+                  <iframe
+                    src="https://www.youtube.com/embed/gq-kN3GFlqg?rel=0&modestbranding=1"
+                    title="Young and Gray"
+                    style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                </div>
               </div>
               <div
                 style={{
@@ -1491,17 +1658,27 @@ export default function Home() {
                   gap: "10px",
                 }}
               >
-                <img
-                  src={ASSETS.gigCard2}
-                  alt="Matriarchs Glow video thumbnail"
+                <div
                   style={{
                     width: "510px",
                     height: "382px",
-                    objectFit: "cover",
                     border: "4px solid #000000",
                     boxSizing: "border-box",
+                    overflow: "hidden",
+                    background: "#000000",
                   }}
-                />
+                >
+                  <iframe
+                    src="https://www.youtube.com/embed/UPR-uxPlDu4?rel=0&modestbranding=1"
+                    title="Matriarchs Glow"
+                    width="510"
+                    height="382"
+                    style={{ border: 0, display: "block" }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                </div>
               </div>
               <div
                 style={{
@@ -1538,9 +1715,10 @@ export default function Home() {
         <img src={ASSETS.grayIsGorgeousMobile} alt="Gray is Gorgeous! Own-it Your Way" className="w-full h-auto block" />
       </section>
 
+      <div id="poise" style={{ scrollMarginTop: "120px" }} />
       {/* ── Enjoy Positive LAST-ing Impressions Section ── */}
       {/* Desktop: LAST-ing Impressions — Figma 1920×3050px, bg #D4D4D4, scale transform */}
-      <div id="poise" className="w-full hidden xl:block relative" style={{ height: "3050px" }}>
+      <div className="w-full hidden xl:block relative" style={{ height: "3050px" }}>
         <section
           style={{
             position: "absolute",
@@ -1760,7 +1938,7 @@ export default function Home() {
                   href="https://www.youtube.com/@SimplySharonTips/featured"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "block", cursor: "pointer" }}
+                  style={{ display: "block", cursor: "pointer", position: "relative" }}
                 >
                   <img
                     src={src}
@@ -1775,6 +1953,31 @@ export default function Home() {
                     onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
                     onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                   />
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "18px",
+                      bottom: "18px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      padding: "10px 14px",
+                      borderRadius: "999px",
+                      background: "rgba(0, 0, 0, 0.76)",
+                      color: "#FFFFFF",
+                      fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "22px",
+                      lineHeight: "28px",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <svg width="32" height="23" viewBox="0 0 32 23" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <rect width="32" height="23" rx="7" fill="#FF0000" />
+                      <path d="M13 7.5V15.5L20.5 11.5L13 7.5Z" fill="white" />
+                    </svg>
+                    <span>YouTube</span>
+                  </div>
                 </a>
               ))}
             </div>
@@ -1884,23 +2087,24 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Meet Sharon Section — Figma 1920×2605px, scale transform ── */}
-      <div id="about" className="w-full hidden xl:block relative" style={{ height: "2605px" }}>
+      <div id="about" style={{ scrollMarginTop: "120px" }} />
+      {/* ── Meet Sharon Section — scaled desktop layout sized to its content ── */}
+      <div className="w-full hidden xl:block relative overflow-hidden" style={{ height: `calc(${aboutDesktopHeight}px * min(1, calc(100vw / 1920)))` }}>
         <section
+          ref={aboutDesktopRef}
           style={{
             position: "absolute",
             top: 0,
             left: 0,
             width: "1920px",
-            height: "2605px",
             transform: "scale(min(1, calc(100vw / 1920)))",
             transformOrigin: "top left",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             alignItems: "center",
             padding: "0px 0px 96px",
-            paddingTop: "40px",
+            paddingTop: "20px",
             gap: "30px",
             background: "linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 40%, #1a1a1a 100%)",
           }}
@@ -1977,7 +2181,7 @@ export default function Home() {
               justifyContent: "center",
               alignItems: "flex-start",
               gap: "67px",
-              width: "1522px",
+              width: "1360px",
             }}
           >
             {/* about-top-row: 1292×616px */}
@@ -1985,16 +2189,16 @@ export default function Home() {
               style={{
                 display: "flex",
                 flexDirection: "row",
-                alignItems: "center",
+                alignItems: "flex-start",
                 padding: "0px 2px 0px 0px",
-                gap: "51px",
-                width: "1292px",
+                gap: "40px",
+                width: "1360px",
               }}
             >
               {/* paragraph-top: 920px wide */}
               <div
                 style={{
-                  width: "920px",
+                  width: "854px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "flex-start",
@@ -2056,8 +2260,8 @@ export default function Home() {
               {/* about-author-image: 319×462px container, 466×511px image absolutely positioned */}
               <div
                 style={{
-                  width: "319px",
-                  height: "462px",
+                  width: "466px",
+                  height: "466px",
                   position: "relative",
                   flexShrink: 0,
                 }}
@@ -2068,9 +2272,9 @@ export default function Home() {
                   style={{
                     position: "absolute",
                     width: "466px",
-                    height: "511px",
-                    left: "-0.5px",
-                    top: "-59px",
+                    height: "466px",
+                    left: "0px",
+                    top: "0px",
                     objectFit: "cover",
                   }}
                 />
@@ -2080,7 +2284,7 @@ export default function Home() {
             {/* about-paragraph-continued: 1522×894px */}
             <div
               style={{
-                width: "1522px",
+                width: "1360px",
                 padding: "10px 0px",
                 display: "flex",
                 justifyContent: "center",
@@ -2118,7 +2322,9 @@ export default function Home() {
             }}
           >
             <a
-              href="/#connect"
+              href="https://sharondanley.com/clients.html"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
                 fontWeight: 700,
@@ -2169,66 +2375,8 @@ export default function Home() {
                 Sharon's Photo Gallery Links Below
               </span>
             </div>
-            {/* gallery-links: 3 buttons */}
-            <div
-              style={{
-                alignSelf: "stretch",
-                padding: "0px 20px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "52px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: "117px",
-                }}
-              >
-                {[
-                  { label: "Makeup", href: "/gallery/makeup" },
-                  { label: "Hairstyling", href: "/gallery/hairstyling" },
-                  { label: "SFX", href: "/gallery/sfx" },
-                ].map(({ label, href }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      padding: "9px 0px 9px 20px",
-                      gap: "14px",
-                      background: "rgba(69, 69, 69, 0.60)",
-                      textDecoration: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
-                        fontWeight: 700,
-                        fontSize: "40px",
-                        lineHeight: "50px",
-                        textAlign: "center",
-                        color: "#FFFFFF",
-                      }}
-                    >
-                      {label}
-                    </span>
-                    {/* dropdown arrow — white filled triangle pointing down */}
-                    <div style={{ padding: "10px", display: "flex", alignItems: "flex-start" }}>
-                      <svg width="28" height="23" viewBox="0 0 28 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <polygon points="14,22 0,0 28,0" fill="#FFFFFF" />
-                      </svg>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
+            {/* gallery-links: collapsible dropdowns */}
+            <DesktopGalleryDropdowns />
           </div>
         </section>
       </div>

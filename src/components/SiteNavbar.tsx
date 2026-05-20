@@ -1,16 +1,24 @@
+import type { MouseEvent } from "react";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
 const LOGO_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/navbar-logo_a2b46c10.webp";
 
-const NAV_LINKS = [
-  { label: "Blogcast", href: "/blogcast" },
-  { label: "Make-Betters", href: "/#make-betters" },
-  { label: "Poise", href: "/#poise" },
-  { label: "About", href: "/#about" },
-  { label: "Archives", href: "/blogcast" },
-  { label: "Contact", href: "/#connect" },
+type NavLink = {
+  label: string;
+  href: string;
+  targetId?: string;
+  external?: boolean;
+};
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Blogcast", href: "/#blogcast", targetId: "blogcast" },
+  { label: "Make-Betters", href: "/#make-betters", targetId: "make-betters" },
+  { label: "Poise", href: "/#poise", targetId: "poise" },
+  { label: "About", href: "/#about", targetId: "about" },
+  { label: "Archives", href: "https://sharondanley.com/Blog.htm", external: true },
+  { label: "Contact", href: "/#connect", targetId: "connect" },
 ];
 
 const NAVBAR_BG = `
@@ -31,6 +39,31 @@ const NAVBAR_BG = `
 
 export function SiteNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, link: NavLink) => {
+    if (link.external || !link.targetId || typeof window === "undefined") {
+      setMobileOpen(false);
+      return;
+    }
+
+    const isHomePage = window.location.pathname === "/" || window.location.pathname === "" || window.location.pathname.endsWith("/index.html");
+
+    if (!isHomePage) {
+      setMobileOpen(false);
+      return;
+    }
+
+    const target = document.getElementById(link.targetId);
+    if (!target) {
+      setMobileOpen(false);
+      return;
+    }
+
+    event.preventDefault();
+    setMobileOpen(false);
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `/#${link.targetId}`);
+  };
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 w-full">
@@ -98,10 +131,12 @@ export function SiteNavbar() {
               height: "108px",
             }}
           >
-            {NAV_LINKS.map(({ label, href }) => (
+            {NAV_LINKS.map((link) => (
               <a
-                key={label}
-                href={href}
+                key={link.label}
+                href={link.href}
+                target={link.external ? "_blank" : undefined}
+                rel={link.external ? "noopener noreferrer" : undefined}
                 style={{
                   fontFamily: "'Source Sans 3', 'Source Sans Pro', Helvetica, Arial, sans-serif",
                   fontWeight: 400,
@@ -115,10 +150,11 @@ export function SiteNavbar() {
                   display: "inline-block",
                   transition: "opacity 0.15s",
                 }}
+                onClick={(event) => handleNavClick(event, link)}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.72")}
                 onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
               >
-                {label}
+                {link.label}
               </a>
             ))}
           </div>
@@ -151,14 +187,16 @@ export function SiteNavbar() {
           <span style={{ fontFamily: "Italianno, cursive", fontSize: "56px", lineHeight: "70px", color: "#FFFFFF", marginBottom: "8px" }}>
             Simply Sharon
           </span>
-          {NAV_LINKS.map(({ label, href }) => (
+          {NAV_LINKS.map((link) => (
             <a
-              key={label}
-              href={href}
-              onClick={() => setMobileOpen(false)}
+              key={link.label}
+              href={link.href}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
+              onClick={(event) => handleNavClick(event, link)}
               style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "28px", fontWeight: 700, color: "#FFFFFF", textDecoration: "none" }}
             >
-              {label}
+              {link.label}
             </a>
           ))}
           <a href="/admin" onClick={() => setMobileOpen(false)} style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: "22px", color: "#d1d5db", textDecoration: "none" }}>

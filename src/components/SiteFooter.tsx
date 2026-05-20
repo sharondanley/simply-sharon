@@ -4,7 +4,7 @@ const ASSETS = {
   emailIcon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/footer-email-icon_ef4750a5.webp",
   facebookIcon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/footer-facebook-icon_d509e7df.webp",
   youtubeIcon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/footer-youtube-icon_68ef0cb6.webp",
-  caricature: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/footer-caricature_10d0429b.webp",
+  caricature: "/transparent-caricature-2-2026.png",
 };
 
 const FOOTER_BG = "radial-gradient(ellipse 70% 90% at 90% -5%, rgba(200,200,215,0.28) 0%, rgba(160,160,175,0.12) 30%, transparent 60%), linear-gradient(to bottom right, #2a2a32 0%, #2e2e38 40%, #38383f 60%, #2a2a32 100%)";
