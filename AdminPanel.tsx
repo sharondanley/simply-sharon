@@ -83,6 +83,8 @@ type GridCell = {
   content?: string;
   url?: string;
   caption?: string;
+  fontSize?: number;
+  textColor?: string;
 };
 
 type PostActionKey = "read" | "listen" | "watch";
@@ -450,7 +452,7 @@ function normalizeThumbnailUrl(rawUrl: string) {
 
 // ─── Block types ──────────────────────────────────────────────────────────────
 
-type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid";
+type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid" | "mediaTextSplit";
 
 type Block = {
   id: string;
@@ -530,6 +532,8 @@ function normalizeGridCell(cell?: GridCell): GridCell {
     content: cell?.content || "",
     url: cell?.url || "",
     caption: cell?.caption || "",
+    fontSize: clampParagraphFontSize(cell?.fontSize),
+    textColor: cell?.textColor || undefined,
   };
 }
 
@@ -541,7 +545,27 @@ function ensureGridCells(gridOrLayout: GridDimensions | GridLayout, cells?: Grid
   return Array.from({ length: count }, (_, index) => normalizeGridCell(cells?.[index]));
 }
 
+function ensureMediaTextSplitCells(cells?: GridCell[]) {
+  const imageCell = normalizeGridCell(cells?.[0]);
+  imageCell.contentType = "image";
+
+  const paragraphCell = normalizeGridCell(cells?.[1]);
+  paragraphCell.contentType = "paragraph";
+  paragraphCell.fontSize = clampParagraphFontSize(paragraphCell.fontSize);
+
+  return [imageCell, paragraphCell];
+}
+
 function normalizeCustomGridBlock(block: Block): Block {
+  if (block.type === "mediaTextSplit") {
+    return {
+      ...block,
+      grid: { rows: 1, columns: 2 },
+      layout: undefined,
+      cells: ensureMediaTextSplitCells(block.cells),
+    };
+  }
+
   if (block.type !== "customGrid") return block;
   const grid = sanitizeGridDimensions(block.grid, block.layout);
   return {
@@ -560,6 +584,15 @@ function createBlock(type: BlockType): Block {
       type,
       grid,
       cells: ensureGridCells(grid),
+    };
+  }
+
+  if (type === "mediaTextSplit") {
+    return {
+      id: generateId(),
+      type,
+      grid: { rows: 1, columns: 2 },
+      cells: ensureMediaTextSplitCells(),
     };
   }
 
@@ -826,7 +859,9 @@ function RichTextToolbar({
               if (e.key === "Enter") {
                 e.preventDefault();
                 commitFontSizeInput();
-                (e.currentTarget as HTMLInputElement).blur();
+                window.setTimeout(() => {
+                  editorRef.current?.focus();
+                }, 0);
               }
             }}
             className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
@@ -880,11 +915,68 @@ function RichTextBlock({
     onChange({ ...block, content: html });
   }, [block, onChange]);
 
-  const handleInput = () => {
+  const syncEditorHtml = useCallback(() => {
     if (editorRef.current) {
       handleHtmlChange(editorRef.current.innerHTML);
     }
+  }, [handleHtmlChange]);
+
+  const handleInput = () => {
+    syncEditorHtml();
   };
+
+  const placeCursorInsideElement = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, []);
+
+  const tryConvertNumericShortcutToOrderedList = useCallback(() => {
+    if (!editorRef.current) return false;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return false;
+
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+    if (!container || !editorRef.current.contains(container)) return false;
+
+    const precedingRange = range.cloneRange();
+    precedingRange.selectNodeContents(editorRef.current);
+    precedingRange.setEnd(range.endContainer, range.endOffset);
+    const precedingText = precedingRange.toString();
+    const lastLine = precedingText.split(/\n/).pop() || "";
+    const match = lastLine.match(/(^|\s)(\d+)\.$/);
+    if (!match) return false;
+
+    const startValue = Number.parseInt(match[2], 10);
+    if (!Number.isFinite(startValue)) return false;
+
+    const selectionWithModify = selection as Selection & {
+      modify?: (alter: string, direction: string, granularity: string) => void;
+    };
+    if (typeof selectionWithModify.modify !== "function") return false;
+
+    const shortcutText = match[0];
+    for (let index = 0; index < shortcutText.length; index += 1) {
+      selectionWithModify.modify("extend", "backward", "character");
+    }
+    selection.deleteFromDocument();
+
+    const existingOrderedLists = editorRef.current.querySelectorAll("ol").length;
+    document.execCommand("insertHTML", false, `<ol start="${startValue}"><li><br></li></ol>`);
+    const insertedList = editorRef.current.querySelectorAll("ol")[existingOrderedLists] as HTMLOListElement | undefined;
+    const insertedItem = insertedList?.querySelector("li") as HTMLElement | null;
+    placeCursorInsideElement(insertedItem);
+    syncEditorHtml();
+    return true;
+  }, [editorRef, placeCursorInsideElement, syncEditorHtml]);
 
   const blockStyles: Record<string, string> = {
     paragraph: "leading-relaxed",
@@ -944,14 +1036,17 @@ function RichTextBlock({
           const text = event.clipboardData.getData("text/plain");
           document.execCommand("insertText", false, text);
           window.setTimeout(() => {
-            if (editorRef.current) {
-              handleHtmlChange(editorRef.current.innerHTML);
-            }
+            syncEditorHtml();
           }, 0);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === " " && tryConvertNumericShortcutToOrderedList()) {
+            event.preventDefault();
+          }
         }}
         data-placeholder={placeholders[block.type] || "Write here..."}
         style={editorStyle}
-        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}
+        className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:list-outside [&_ul]:pl-8 [&_ol]:list-decimal [&_ol]:list-outside [&_ol]:pl-8 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}
       />
     </div>
   );
@@ -968,6 +1063,7 @@ function BlockIcon({ type }: { type: BlockType }) {
     video: <Video size={15} />,
     divider: <span className="text-sm font-bold">—</span>,
     customGrid: <SplitSquareHorizontal size={15} />,
+    mediaTextSplit: <SplitSquareHorizontal size={15} />,
   };
   return <>{icons[type]}</>;
 }
@@ -1009,9 +1105,12 @@ function BlockEditor({
     try {
       const url = await uploadImageFile(file);
       const nextBlock = normalizeCustomGridBlock(block);
+      const normalizedCells = nextBlock.type === "mediaTextSplit"
+        ? ensureMediaTextSplitCells(nextBlock.cells)
+        : ensureGridCells(nextBlock.grid || { rows: 1, columns: 3 }, nextBlock.cells);
       onChange({
         ...nextBlock,
-        cells: ensureGridCells(nextBlock.grid || { rows: 1, columns: 3 }, nextBlock.cells).map((cell) => cell.id === cellId ? { ...cell, url } : cell),
+        cells: normalizedCells.map((cell) => cell.id === cellId ? { ...cell, url } : cell),
       });
       toast.success("Grid image uploaded.");
     } catch (err) {
@@ -1094,17 +1193,34 @@ function BlockEditor({
         </div>
       );
     }
-    if (block.type === "customGrid") {
+    if (block.type === "customGrid" || block.type === "mediaTextSplit") {
       return (
         <GridBlockEditor
-          block={normalizeCustomGridBlock(block)}
-          onChange={onChange}
+          block={normalizeCustomGridBlock(block) as typeof block}
+          onChange={onChange as (updated: typeof block) => void}
           dark={dark}
           inputClass={inputClass}
           helperClass={helperClass}
           uploadingCellId={uploadingCellId}
           gridFileInputRefs={gridFileInputRefs}
           handleGridCellUpload={handleGridCellUpload}
+          renderParagraphCellEditor={(cell, onUpdateCell) => (
+            <RichTextBlock
+              block={{
+                id: cell.id,
+                type: "paragraph",
+                content: cell.content || "",
+                fontSize: clampParagraphFontSize(cell.fontSize),
+                textColor: cell.textColor,
+              }}
+              onChange={(updatedCellBlock) => onUpdateCell({
+                content: updatedCellBlock.content || "",
+                fontSize: clampParagraphFontSize(updatedCellBlock.fontSize),
+                textColor: updatedCellBlock.textColor,
+              })}
+              dark={dark}
+            />
+          )}
         />
       );
     }
@@ -1160,6 +1276,7 @@ function AddBlockMenu({
     { type: "image", label: "Image", icon: <Image size={18} /> },
     { type: "video", label: "Video", icon: <Video size={18} /> },
     { type: "customGrid", label: "Custom Grid", icon: <SplitSquareHorizontal size={18} /> },
+    { type: "mediaTextSplit", label: "Image + Paragraph", icon: <SplitSquareHorizontal size={18} /> },
     { type: "divider", label: "Divider", icon: <span className="font-bold text-base">—</span> },
   ];
 
@@ -1246,13 +1363,20 @@ function PostPreview({
               <div key={cell.id} className={`min-h-36 rounded-2xl border border-dashed p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-300 bg-gray-50/50"}`}>
                 {cell.contentType === "paragraph" && (
                   <div
-                    className={`text-base leading-relaxed font-['Source_Sans_3'] ${bodyColor}`}
+                    className={`font-['Source_Sans_3'] ${bodyColor}`}
+                    style={{
+                      fontSize: `${clampParagraphFontSize(cell.fontSize)}px`,
+                      lineHeight: `${Math.round(clampParagraphFontSize(cell.fontSize) * 1.55)}px`,
+                      color: cell.textColor || (dark ? "#e5e7eb" : "#1f2937"),
+                    }}
                     dangerouslySetInnerHTML={{ __html: cell.content || "<em>Paragraph slot</em>" }}
                   />
                 )}
                 {(cell.contentType === "image" || cell.contentType === "thumbnail") && cell.url ? (
                   <div className="flex h-full flex-col gap-2">
-                    <img src={cell.url} alt={cell.caption || "Grid image"} className={`w-full rounded-xl object-cover ${cell.contentType === "thumbnail" ? "h-32" : "min-h-[180px] max-h-72"}`} />
+                    <div className={`flex min-h-[180px] items-center justify-center rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-950" : "border-gray-200 bg-white"}`}>
+                      <img src={cell.url} alt={cell.caption || "Grid image"} className="max-h-72 w-full object-contain" />
+                    </div>
                     {cell.caption ? <span className={`text-sm font-['Source_Sans_3'] ${subColor}`}>{cell.caption}</span> : null}
                   </div>
                 ) : null}
@@ -1263,6 +1387,38 @@ function PostPreview({
                 ) : null}
               </div>
             ))}
+          </div>
+        );
+      }
+      case "mediaTextSplit": {
+        const cells = ensureMediaTextSplitCells(block.cells);
+        const imageCell = cells[0];
+        const paragraphCell = cells[1];
+        return (
+          <div key={block.id} className="my-6 grid gap-4" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)" }}>
+            <div className={`rounded-2xl border border-dashed p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-300 bg-gray-50/50"}`}>
+              {imageCell.url ? (
+                <div className={`flex min-h-[220px] items-center justify-center rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-950" : "border-gray-200 bg-white"}`}>
+                  <img src={imageCell.url} alt={imageCell.caption || "Feature image"} className="max-h-80 w-full object-contain" />
+                </div>
+              ) : (
+                <div className={`flex min-h-[220px] items-center justify-center rounded-xl ${dark ? "bg-gray-800 text-gray-500" : "bg-white text-gray-400"}`}>
+                  <Image size={28} />
+                </div>
+              )}
+              {imageCell.caption ? <span className={`mt-2 block text-sm font-['Source_Sans_3'] ${subColor}`}>{imageCell.caption}</span> : null}
+            </div>
+            <div className={`rounded-2xl border border-dashed p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-300 bg-gray-50/50"}`}>
+              <div
+                className={`font-['Source_Sans_3'] ${bodyColor}`}
+                style={{
+                  fontSize: `${clampParagraphFontSize(paragraphCell.fontSize)}px`,
+                  lineHeight: `${Math.round(clampParagraphFontSize(paragraphCell.fontSize) * 1.55)}px`,
+                  color: paragraphCell.textColor || (dark ? "#e5e7eb" : "#1f2937"),
+                }}
+                dangerouslySetInnerHTML={{ __html: paragraphCell.content || "<em>Paragraph slot</em>" }}
+              />
+            </div>
           </div>
         );
       }
@@ -1411,7 +1567,7 @@ function PostEditor({
         setHashtags((post.hashtags || []).join(", "));
         setThumbnailUrl(post.thumbnailUrl || "");
         setThumbnailPreview(post.thumbnailUrl || "");
-        setBlocks(post.blocks?.length ? post.blocks.map((block) => block.type === "customGrid" ? normalizeCustomGridBlock(block) : block) : [{ id: generateId(), type: "paragraph", content: "", fontSize: DEFAULT_PARAGRAPH_FONT_SIZE }]);
+        setBlocks(post.blocks?.length ? post.blocks.map((block) => (block.type === "customGrid" || block.type === "mediaTextSplit") ? normalizeCustomGridBlock(block) : block) : [{ id: generateId(), type: "paragraph", content: "", fontSize: DEFAULT_PARAGRAPH_FONT_SIZE }]);
         setPublished(Boolean(post.published));
       })
       .catch((err: unknown) => {

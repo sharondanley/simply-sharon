@@ -1,4 +1,4 @@
-export type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid";
+export type BlockType = "paragraph" | "heading" | "quote" | "image" | "video" | "divider" | "customGrid" | "mediaTextSplit";
 
 export type GridCellContentType = "paragraph" | "image" | "thumbnail";
 
@@ -15,6 +15,8 @@ export type GridCell = {
   content?: string;
   url?: string;
   caption?: string;
+  fontSize?: number;
+  textColor?: string;
 };
 
 export type BlogBlock = {

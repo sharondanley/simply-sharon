@@ -202,6 +202,7 @@ async function ensurePostsMetadataColumns() {
 }
 
 async function fetchAdminPostById(id) {
+    await ensurePostsMetadataColumns();
     let rows;
 
     try {
@@ -242,6 +243,7 @@ async function fetchAdminPostById(id) {
 }
 
 async function fetchPublicPostByField(field, value) {
+    await ensurePostsMetadataColumns();
     if (!['id', 'slug'].includes(field)) {
         throw new Error('Unsupported field lookup');
     }
@@ -286,6 +288,7 @@ async function fetchPublicPostByField(field, value) {
 }
 
 async function fetchPublicArchivePosts({ page, limit, search, year, month, sort }) {
+    await ensurePostsMetadataColumns();
     const where = ['deleted_at IS NULL', 'published_at IS NOT NULL'];
     const params = [];
     const countParams = [];
@@ -859,6 +862,7 @@ app.get('/api/admin/posts', authMiddleware, async (req, res) => {
     const sort = typeof req.query.sort === 'string' ? req.query.sort.trim().toLowerCase() : '';
 
     try {
+        await ensurePostsMetadataColumns();
         let items, total;
         try {
             const where = ['deleted_at IS NULL'];
@@ -956,6 +960,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
     const publishedAt = published ? new Date() : null;
 
     try {
+        await ensurePostsMetadataColumns();
         let result;
         try {
             [result] = await dbPromise.query(
@@ -1021,6 +1026,7 @@ app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
     }
 
     try {
+        await ensurePostsMetadataColumns();
         const [existingRows] = await dbPromise.query(
             'SELECT slug, published_at AS publishedAt FROM posts WHERE id = ? AND deleted_at IS NULL LIMIT 1',
             [id]

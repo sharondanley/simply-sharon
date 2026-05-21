@@ -20,6 +20,8 @@ const ASSETS = {
   commentSection:  "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/124-76_ee23175d.webp",
 };
 
+const IMAGE_DROP_SHADOW = "drop-shadow(1px 3px 7px #180c0c)";
+
 function getLegacyGridDimensions(layout?: string) {
   return layout === "3x3" ? { rows: 3, columns: 3 } : { rows: 1, columns: 3 };
 }
@@ -47,6 +49,8 @@ function ensureGridCells(block: BlogBlock) {
       content: existing?.content || "",
       url: existing?.url || "",
       caption: existing?.caption || "",
+      fontSize: existing?.fontSize,
+      textColor: existing?.textColor,
     };
   });
 }
@@ -114,24 +118,44 @@ function renderBlock(block: BlogBlock, index: number) {
       return (
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
           <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
-            {cells.map((cell) => (
-              <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
-                {cell.contentType === "paragraph" ? (
-                  <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "49px", color: "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
-                ) : cell.url ? (
-                  <>
-                    <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", borderRadius: "16px", alignSelf: "center" }} />
-                    {cell.caption ? (
-                      <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
-                    ) : null}
-                  </>
-                ) : (
-                  <div style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", color: "#6B7280", background: "transparent" }}>
-                    {cell.contentType === "thumbnail" ? "Thumbnail" : "Image"}
-                  </div>
-                )}
-              </div>
-            ))}
+            {cells.map((cell) => {
+              const fontSize = Math.max(12, Math.min(72, Math.round(cell.fontSize ?? 36)));
+              return (
+                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
+                  {cell.contentType === "paragraph" ? (
+                    <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
+                  ) : cell.url ? (
+                    <>
+                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "center", filter: IMAGE_DROP_SHADOW }} />
+                      {cell.caption ? (
+                        <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", color: "#6B7280", background: "transparent" }}>
+                      {cell.contentType === "thumbnail" ? "Thumbnail" : "Image"}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    case "mediaTextSplit": {
+      const [imageCell, paragraphCell] = ensureGridCells({ ...block, grid: { rows: 1, columns: 2 } });
+      const paragraphFontSize = Math.max(12, Math.min(72, Math.round(paragraphCell.fontSize ?? 36)));
+      return (
+        <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
+          <div className="blog-post-media-text" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: "28px", alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {imageCell.url ? (
+                <img src={imageCell.url} alt={imageCell.caption || "Feature image"} style={{ width: "100%", height: "auto", maxHeight: "720px", objectFit: "contain", filter: IMAGE_DROP_SHADOW }} />
+              ) : null}
+              {imageCell.caption ? <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{imageCell.caption}</span> : null}
+            </div>
+            <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${paragraphFontSize}px`, lineHeight: `${Math.round(paragraphFontSize * 1.35)}px`, color: paragraphCell.textColor || "#111827" }} dangerouslySetInnerHTML={{ __html: paragraphCell.content || "" }} />
           </div>
         </div>
       );
@@ -140,7 +164,7 @@ function renderBlock(block: BlogBlock, index: number) {
       return block.url ? (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <img src={block.url} alt={block.caption || ""} style={{ width: "auto", height: "auto", maxWidth: "1200px", maxHeight: "900px", objectFit: "contain", borderRadius: "16px" }} />
+            <img src={block.url} alt={block.caption || ""} style={{ width: "auto", height: "auto", maxWidth: "1200px", maxHeight: "900px", objectFit: "contain", filter: IMAGE_DROP_SHADOW }} />
             {block.caption && <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "28px", lineHeight: "34px", color: "#6b7280" }}>{block.caption}</span>}
           </div>
         </div>
@@ -150,7 +174,7 @@ function renderBlock(block: BlogBlock, index: number) {
       return embedUrl ? (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "756px", height: "432.55px", borderRadius: "18px", overflow: "hidden", background: "#000" }}>
+            <div style={{ width: "756px", height: "432.55px", overflow: "hidden", background: "#000" }}>
               <iframe src={embedUrl} title={block.caption || "Embedded video"} style={{ width: "100%", height: "100%", border: 0 }} allowFullScreen />
             </div>
             {block.caption ? <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "28px", lineHeight: "34px", color: "#6b7280" }}>{block.caption}</span> : null}
@@ -251,6 +275,24 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
           text-underline-offset: 0.12em;
         }
 
+        .blog-post-rich-text ol {
+          list-style: decimal;
+          list-style-position: outside;
+          padding-left: 1.6em;
+          margin: 0.5em 0;
+        }
+
+        .blog-post-rich-text ul {
+          list-style: disc;
+          list-style-position: outside;
+          padding-left: 1.6em;
+          margin: 0.5em 0;
+        }
+
+        .blog-post-rich-text li {
+          margin: 0.18em 0;
+        }
+
         @media (max-width: 767px) {
           .blog-post-custom-grid {
             grid-template-columns: 1fr !important;
@@ -336,7 +378,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                 <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                   <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
                     <span>{publishedLabel}</span>
-                    {post.episode ? <><span style={{ color: "#111827", fontStyle: "normal" }}> | </span><span>{`Ep ${post.episode}`}</span></> : ""}
+                    {post.episode !== null && post.episode !== undefined && String(post.episode).trim() !== "" ? <><span style={{ color: "#111827", fontStyle: "normal" }}> | </span><span>{`Ep ${post.episode}`}</span></> : ""}
                   </div>
                   <div style={{ marginTop: "10px", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
                     {`By: ${authorLine}`}
@@ -349,7 +391,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                 ) : null}
               </div>
                   <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
-                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", boxShadow: "0 22px 48px rgba(0, 0, 0, 0.24)" }} />
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", filter: IMAGE_DROP_SHADOW }} />
               </div>
             </div>
           </div>
