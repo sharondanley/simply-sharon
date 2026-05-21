@@ -104,7 +104,7 @@ export function SiteNavbar() {
             <img
               src={LOGO_URL}
               alt="Simply Sharon logo"
-              style={{ width: "75px", height: "108px", objectFit: "contain", display: "block" }}
+              style={{ width: "75px", height: "108px", objectFit: "contain", display: "block", transform: "scaleX(-1)", transformOrigin: "center" }}
             />
             <span
               style={{
@@ -166,7 +166,7 @@ export function SiteNavbar() {
         style={{ height: "64px", background: NAVBAR_BG, flexShrink: 0 }}
       >
         <a href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-          <img src={LOGO_URL} alt="Simply Sharon logo" style={{ width: "40px", height: "58px", objectFit: "contain" }} />
+          <img src={LOGO_URL} alt="Simply Sharon logo" style={{ width: "40px", height: "58px", objectFit: "contain", transform: "scaleX(-1)", transformOrigin: "center" }} />
           <span style={{ fontFamily: "Italianno, cursive", fontSize: "36px", lineHeight: "45px", color: "#FFFFFF" }}>
             SimplySharon
           </span>

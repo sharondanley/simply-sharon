@@ -23,7 +23,7 @@ const NAV_ITEMS = [
 const ASSETS = {
   // Hero section assets (from hero-section Figma export - correct assets)
   heroLogo: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/hero-logo-correct_3c19972d.webp",
-  heroSharon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/hero-sharon-correct_0a0b4071.webp",
+  heroSharon: "/assets/updated/hero_new.png",
   // Hero (legacy - kept for mobile)
   sharonHero: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/81-436_a928ba59.webp",
   heroMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-3_a429c158.webp",
@@ -37,7 +37,7 @@ const ASSETS = {
   blogcastMobileLeft: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-29_a3fcdaf5.webp",
   blogcastMobileRight: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-30_386acd72.webp",
   // Full-section images (kept as images - complex photo grids without individual assets)
-  makeBetterGallery: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/make-better-gallery_6a98b124.webp",
+  makeBetterGallery: "/assets/updated/collage_new.png",
   makeBetterDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/84-446_3212980c.webp",
   makeBetterMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-54_8e41af54.webp",
   rlmbGallery: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/rlmb-gallery_ec0a1627.webp",
@@ -53,7 +53,7 @@ const ASSETS = {
   grayIsGorgeousDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/93-53_88b9047e.webp",
   grayIsGorgeousMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-91_08f34d98.webp",
   // About Sharon portrait (Figma 98-280)
-  aboutSharonPortrait: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/sharon-portrait_9be6848e.webp",
+  aboutSharonPortrait: "/assets/updated/about_new.jpg",
   dropdownArrow: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/dropdown-arrow_cbe41a8a.svg",
   aboutSharonPortraitOld: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-207_8eccdfae.webp",
   aboutSharonMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-201_7973673f.webp",
@@ -314,6 +314,7 @@ const heroRayOverlay = {
 export default function Home() {
   const aboutDesktopRef = useRef<HTMLElement | null>(null);
   const [aboutDesktopHeight, setAboutDesktopHeight] = useState(2100);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const updateAboutDesktopHeight = () => {
@@ -475,7 +476,7 @@ export default function Home() {
           </div>
 
           {/* hero-image: 453×586px, Sharon photo (transparent bg PNG/WebP) */}
-          <div style={{ padding: "10px", flexShrink: 0 }}>
+          <div style={{ padding: "10px", flexShrink: 0, position: "relative", width: "453px", height: "585.78px", overflow: "visible" }}>
             <img
               src={ASSETS.heroSharon}
               alt="Sharon Danley"
@@ -484,6 +485,8 @@ export default function Home() {
                 height: "585.78px",
                 objectFit: "contain",
                 objectPosition: "top center",
+                transform: "translateY(-60px) scale(2)",
+                transformOrigin: "top center",
               }}
             />
           </div>
@@ -2184,7 +2187,7 @@ export default function Home() {
               flexDirection: "column",
               justifyContent: "center",
               alignItems: "flex-start",
-              gap: "67px",
+              gap: "28px",
               width: "1360px",
             }}
           >
@@ -2206,7 +2209,7 @@ export default function Home() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "flex-start",
-                  gap: "24px",
+                  gap: "10px",
                 }}
               >
                 {/* paragraph-top-1 */}
@@ -2238,7 +2241,7 @@ export default function Home() {
                 <div
                   style={{
                     alignSelf: "stretch",
-                    padding: "10px",
+                    padding: "0px 10px",
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
@@ -2275,10 +2278,9 @@ export default function Home() {
                   alt="Sharon Danley"
                   style={{
                     position: "absolute",
-                    width: "466px",
-                    height: "466px",
+                    width: "366px",
+                    height: "866px",
                     left: "0px",
-                    top: "0px",
                     objectFit: "cover",
                   }}
                 />
@@ -2289,7 +2291,7 @@ export default function Home() {
             <div
               style={{
                 width: "1360px",
-                padding: "10px 0px",
+                padding: "0px 0px",
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
@@ -2401,7 +2403,7 @@ export default function Home() {
             <span className="text-center text-black text-8xl font-normal font-['Italianno']">Glimpse Behind the Scenes</span>
           </div>
           <div className="self-stretch px-[42px] py-[13px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-4xl font-bold font-['Source_Sans_3']">Where Art Transforms</span>
+            <span className="text-center text-black text-[40px] leading-[50px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Where Art Transforms</span>
           </div>
         </div>
         <div className="self-stretch flex flex-col justify-start items-center gap-[86px]">
@@ -2409,13 +2411,13 @@ export default function Home() {
             <img
               src={ASSETS.collageDesktop}
               alt="Behind the Scenes Collage"
-              className="self-stretch h-[581px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => window.open(ASSETS.collageDesktop, "_blank")}
+              className="self-stretch h-[581px] object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+              onClick={() => setExpandedImage(ASSETS.collageDesktop)}
             />
           </div>
           <button
             className="p-2.5 inline-flex justify-center items-center gap-2.5"
-            onClick={() => window.open(ASSETS.collageDesktop, "_blank")}
+            onClick={() => setExpandedImage(ASSETS.collageDesktop)}
           >
             <span className="text-center text-[#4e4e4e] text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
               Click to Enlarge
@@ -2433,7 +2435,7 @@ export default function Home() {
             </span>
           </div>
           <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-            <span className="flex-1 text-center text-black text-4xl font-bold font-['Source_Sans_3']">Where Art Transforms</span>
+            <span className="flex-1 text-center text-black text-[40px] leading-[50px] font-normal font-['Source_Sans_3']">Where Art Transforms</span>
           </div>
         </div>
         <div className="self-stretch flex flex-col justify-start items-center gap-px">
@@ -2441,13 +2443,13 @@ export default function Home() {
             <img
               src={ASSETS.collageMobile}
               alt="Behind the Scenes Collage"
-              className="self-stretch h-[216px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => window.open(ASSETS.collageMobile, "_blank")}
+              className="self-stretch h-[216px] object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+              onClick={() => setExpandedImage(ASSETS.collageMobile)}
             />
           </div>
           <button
             className="p-2.5 inline-flex justify-center items-center gap-2.5"
-            onClick={() => window.open(ASSETS.collageMobile, "_blank")}
+            onClick={() => setExpandedImage(ASSETS.collageMobile)}
           >
             <span className="text-center text-[#4e4e4e] text-xl font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
               Click to Enlarge
@@ -2456,6 +2458,28 @@ export default function Home() {
         </div>
       </section>
 
+        {expandedImage && (
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-4 py-8"
+            onClick={() => setExpandedImage(null)}
+          >
+            <div className="relative max-h-full max-w-[min(96vw,1400px)]" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                aria-label="Close enlarged image"
+                className="absolute right-3 top-3 z-10 rounded-full bg-black/70 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-black"
+                onClick={() => setExpandedImage(null)}
+              >
+                Close
+              </button>
+              <img
+                src={expandedImage}
+                alt="Enlarged behind the scenes collage"
+                className="max-h-[88vh] w-auto max-w-full rounded-2xl bg-white object-contain shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </SiteLayout>
   );

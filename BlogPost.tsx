@@ -79,7 +79,7 @@ function renderIntroBlock(block?: BlogBlock | null) {
     default: {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
-        <div style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        <div className="blog-post-rich-text" style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
       );
     }
   }
@@ -117,10 +117,10 @@ function renderBlock(block: BlogBlock, index: number) {
             {cells.map((cell) => (
               <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
                 {cell.contentType === "paragraph" ? (
-                  <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "30px", lineHeight: "40px", color: "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
+                  <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "36px", lineHeight: "49px", color: "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                 ) : cell.url ? (
                   <>
-                    <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: cell.contentType === "thumbnail" ? "180px" : "260px", objectFit: "cover", borderRadius: "16px" }} />
+                    <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", borderRadius: "16px", alignSelf: "center" }} />
                     {cell.caption ? (
                       <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
                     ) : null}
@@ -140,7 +140,7 @@ function renderBlock(block: BlogBlock, index: number) {
       return block.url ? (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <img src={block.url} alt={block.caption || ""} style={{ maxWidth: "1200px", maxHeight: "720px", objectFit: "cover", borderRadius: "16px" }} />
+            <img src={block.url} alt={block.caption || ""} style={{ width: "auto", height: "auto", maxWidth: "1200px", maxHeight: "900px", objectFit: "contain", borderRadius: "16px" }} />
             {block.caption && <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "28px", lineHeight: "34px", color: "#6b7280" }}>{block.caption}</span>}
           </div>
         </div>
@@ -149,8 +149,11 @@ function renderBlock(block: BlogBlock, index: number) {
       const embedUrl = toEmbedUrl(block.url);
       return embedUrl ? (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px", display: "flex", justifyContent: "center" }}>
-          <div style={{ width: "756px", height: "432.55px", borderRadius: "18px", overflow: "hidden", background: "#000" }}>
-            <iframe src={embedUrl} title={block.caption || "Embedded video"} style={{ width: "100%", height: "100%", border: 0 }} allowFullScreen />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: "756px", height: "432.55px", borderRadius: "18px", overflow: "hidden", background: "#000" }}>
+              <iframe src={embedUrl} title={block.caption || "Embedded video"} style={{ width: "100%", height: "100%", border: 0 }} allowFullScreen />
+            </div>
+            {block.caption ? <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "28px", lineHeight: "34px", color: "#6b7280" }}>{block.caption}</span> : null}
           </div>
         </div>
       ) : null;
@@ -165,7 +168,7 @@ function renderBlock(block: BlogBlock, index: number) {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-          <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
     }
@@ -241,6 +244,13 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
   return (
     <SiteLayout background="#fff" includeFooter={true}>
       <style>{`
+        .blog-post-rich-text a {
+          color: #1d4ed8;
+          text-decoration: underline;
+          text-decoration-thickness: 1px;
+          text-underline-offset: 0.12em;
+        }
+
         @media (max-width: 767px) {
           .blog-post-custom-grid {
             grid-template-columns: 1fr !important;
@@ -324,10 +334,11 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
                 <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                  <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#000", fontWeight: 400 }}>
-                    {publishedLabel}{post.episode ? ` | Ep ${post.episode}` : ""}
+                  <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
+                    <span>{publishedLabel}</span>
+                    {post.episode ? <><span style={{ color: "#111827", fontStyle: "normal" }}> | </span><span>{`Ep ${post.episode}`}</span></> : ""}
                   </div>
-                  <div style={{ marginTop: "10px", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#000", fontWeight: 400 }}>
+                  <div style={{ marginTop: "10px", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
                     {`By: ${authorLine}`}
                   </div>
                 </div>
@@ -338,7 +349,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                 ) : null}
               </div>
                   <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
-                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "483px", objectFit: "cover", display: "block", boxShadow: "0 22px 48px rgba(0, 0, 0, 0.24)" }} />
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", boxShadow: "0 22px 48px rgba(0, 0, 0, 0.24)" }} />
               </div>
             </div>
           </div>

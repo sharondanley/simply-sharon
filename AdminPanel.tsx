@@ -468,7 +468,7 @@ type Block = {
 const MAX_GRID_ROWS = 6;
 const MAX_GRID_COLUMNS = 3;
 const MIN_GRID_SIZE = 1;
-const DEFAULT_PARAGRAPH_FONT_SIZE = 18;
+const DEFAULT_PARAGRAPH_FONT_SIZE = 36;
 const MIN_PARAGRAPH_FONT_SIZE = 12;
 const MAX_PARAGRAPH_FONT_SIZE = 72;
 
@@ -586,6 +586,12 @@ function RichTextToolbar({
   onHtmlChange: (html: string) => void;
 }) {
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const fontSize = clampParagraphFontSize(block.fontSize);
+  const [fontSizeInput, setFontSizeInput] = useState(String(fontSize));
+
+  useEffect(() => {
+    setFontSizeInput(String(fontSize));
+  }, [fontSize]);
 
   const updateActiveFormats = useCallback(() => {
     const formats = new Set<string>();
@@ -628,6 +634,27 @@ function RichTextToolbar({
     syncHtml();
   };
 
+  const getSelectionFontSize = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return fontSize;
+    let node: Node | null = selection.anchorNode;
+    while (node && editorRef.current && node !== editorRef.current) {
+      const element = node.nodeType === Node.ELEMENT_NODE
+        ? node as HTMLElement
+        : node.parentNode instanceof HTMLElement
+          ? node.parentNode
+          : null;
+      if (element && editorRef.current.contains(element)) {
+        const computed = Number.parseFloat(window.getComputedStyle(element).fontSize || "");
+        if (Number.isFinite(computed)) {
+          return clampParagraphFontSize(computed);
+        }
+      }
+      node = node.parentNode;
+    }
+    return fontSize;
+  }, [editorRef, fontSize]);
+
   const applySelectedFontSize = useCallback((nextFontSize: number) => {
     if (!editorRef.current) return;
     editorRef.current.focus();
@@ -636,7 +663,7 @@ function RichTextToolbar({
     editorRef.current.querySelectorAll('font[size="7"]').forEach((node) => {
       const span = document.createElement("span");
       span.style.fontSize = `${nextFontSize}px`;
-      span.style.lineHeight = `${Math.round(nextFontSize * 1.55)}px`;
+      span.style.lineHeight = `${Math.round(nextFontSize * 1.35)}px`;
       span.innerHTML = node.innerHTML;
       node.replaceWith(span);
     });
@@ -662,6 +689,42 @@ function RichTextToolbar({
     document.execCommand("insertHTML", false, markup);
     updateActiveFormats();
     syncHtml();
+  };
+
+  const applyTextColor = (nextColor?: string) => {
+    if (selectionBelongsToEditor(true) && nextColor) {
+      editorRef.current?.focus();
+      document.execCommand("styleWithCSS", false, "true");
+      document.execCommand("foreColor", false, nextColor);
+      updateActiveFormats();
+      syncHtml();
+      return;
+    }
+    onBlockChange({ ...block, textColor: nextColor });
+  };
+
+  const handleFontSizeChange = (nextValue: number) => {
+    const nextFontSize = clampParagraphFontSize(nextValue);
+    setFontSizeInput(String(nextFontSize));
+    if (selectionBelongsToEditor(true)) {
+      applySelectedFontSize(nextFontSize);
+      return;
+    }
+    onBlockChange({ ...block, fontSize: nextFontSize });
+  };
+
+  const handleFontSizeStep = (delta: number) => {
+    const baseFontSize = selectionBelongsToEditor(true) ? getSelectionFontSize() : fontSize;
+    handleFontSizeChange(baseFontSize + delta);
+  };
+
+  const commitFontSizeInput = () => {
+    const parsed = Number.parseInt(fontSizeInput.trim(), 10);
+    if (!Number.isFinite(parsed)) {
+      setFontSizeInput(String(fontSize));
+      return;
+    }
+    handleFontSizeChange(parsed);
   };
 
   const toolButtonClass = (active?: boolean) => `p-2 rounded text-base transition-colors ${
@@ -695,18 +758,8 @@ function RichTextToolbar({
     </button>
   );
 
-  const fontSize = clampParagraphFontSize(block.fontSize);
   const defaultTextColor = dark ? "#f3f4f6" : "#111827";
   const pickerColor = normalizeHexColor(block.textColor, defaultTextColor);
-
-  const handleFontSizeChange = (nextValue: number) => {
-    const nextFontSize = clampParagraphFontSize(nextValue);
-    if (selectionBelongsToEditor(true)) {
-      applySelectedFontSize(nextFontSize);
-      return;
-    }
-    onBlockChange({ ...block, fontSize: nextFontSize });
-  };
 
   return (
     <div className={`flex items-center gap-0.5 px-3 py-2 border-b flex-wrap ${dark ? "bg-gray-700 border-gray-600" : "bg-gray-100 border-gray-200"}`}>
@@ -733,15 +786,15 @@ function RichTextToolbar({
         <input
           type="color"
           value={pickerColor}
-          onChange={(e) => onBlockChange({ ...block, textColor: e.target.value })}
+          onChange={(e) => applyTextColor(e.target.value)}
           className="h-8 w-10 cursor-pointer rounded border border-transparent bg-transparent p-0"
-          title="Block text colour"
+          title="Text colour"
         />
         <button
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onBlockChange({ ...block, textColor: undefined });
+            applyTextColor(undefined);
           }}
           className={`rounded px-2 py-1 text-xs font-bold transition-colors ${dark ? "text-gray-300 hover:bg-gray-600 hover:text-white" : "text-gray-600 hover:bg-gray-200 hover:text-black"}`}
           title="Reset to default text colour"
@@ -755,7 +808,7 @@ function RichTextToolbar({
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              handleFontSizeChange(fontSize - 1);
+              handleFontSizeStep(-1);
             }}
             className={toolButtonClass(false)}
             title="Decrease font size"
@@ -766,14 +819,15 @@ function RichTextToolbar({
             type="number"
             min={MIN_PARAGRAPH_FONT_SIZE}
             max={MAX_PARAGRAPH_FONT_SIZE}
-            value={fontSize}
-            onChange={(e) => {
-              const rawValue = e.target.value.trim();
-              if (!rawValue) {
-                onBlockChange({ ...block, fontSize: DEFAULT_PARAGRAPH_FONT_SIZE });
-                return;
+            value={fontSizeInput}
+            onChange={(e) => setFontSizeInput(e.target.value)}
+            onBlur={commitFontSizeInput}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitFontSizeInput();
+                (e.currentTarget as HTMLInputElement).blur();
               }
-              handleFontSizeChange(Number(rawValue));
             }}
             className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
             title="Paragraph font size"
@@ -782,7 +836,7 @@ function RichTextToolbar({
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              handleFontSizeChange(fontSize + 1);
+              handleFontSizeStep(1);
             }}
             className={toolButtonClass(false)}
             title="Increase font size"
@@ -885,6 +939,16 @@ function RichTextBlock({
         contentEditable
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={(event) => {
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain");
+          document.execCommand("insertText", false, text);
+          window.setTimeout(() => {
+            if (editorRef.current) {
+              handleHtmlChange(editorRef.current.innerHTML);
+            }
+          }, 0);
+        }}
         data-placeholder={placeholders[block.type] || "Write here..."}
         style={editorStyle}
         className={`min-h-[100px] px-4 py-3 outline-none font-['Source_Sans_3'] ${blockStyles[block.type] || "text-lg"} ${block.type === "quote" ? quoteColor : ""} ${placeholderColor} empty:before:content-[attr(data-placeholder)] empty:before:pointer-events-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:mb-1 [&_a]:underline [&_a]:decoration-1 ${dark ? "[&_a]:text-blue-300" : "[&_a]:text-blue-700"}`}

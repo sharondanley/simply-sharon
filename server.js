@@ -190,6 +190,9 @@ async function saveContentBlocks(postId, blocks) {
 }
 
 async function ensurePostsMetadataColumns() {
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS topic VARCHAR(255) NULL');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS episode INT NULL');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS hashtags LONGTEXT NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS read_url VARCHAR(2048) NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS listen_url VARCHAR(2048) NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS watch_url VARCHAR(2048) NULL');
@@ -937,12 +940,15 @@ app.get('/api/admin/posts/:id', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/admin/posts', authMiddleware, async (req, res) => {
-    const { title, summary, topic, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
+    const { title, summary, topic, episode, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
 
     if (!title || !title.trim()) {
         return res.status(400).json({ error: 'Title is required' });
     }
 
+    const parsedEpisode = Number.isInteger(Number(episode)) && Number(episode) > 0
+        ? Number(episode)
+        : null;
     const baseSlug = slugify(title.trim());
     const slug = baseSlug + '-' + Date.now();
     const content = JSON.stringify(blocks || []);
@@ -968,7 +974,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
                     status,
                     publishedAt,
                     topic?.trim() || null,
-                    null,
+                    parsedEpisode,
                     hashtags?.length ? JSON.stringify(hashtags) : null,
                     req.adminUser.id,
                     readUrl?.trim() || null,
@@ -1007,7 +1013,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const { title, summary, topic, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
+    const { title, summary, topic, episode, hashtags, blocks, thumbnailUrl, published, readUrl, listenUrl, watchUrl, showReadButton, showListenButton, showWatchButton } = req.body;
 
     if (!id || id < 1) return res.status(400).json({ error: 'Invalid post ID' });
     if (!title || !title.trim()) {
@@ -1025,6 +1031,9 @@ app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: 'Post not found' });
         }
 
+        const parsedEpisode = Number.isInteger(Number(episode)) && Number(episode) > 0
+            ? Number(episode)
+            : null;
         const content = JSON.stringify(blocks || []);
         const status = published ? 'published' : 'draft';
         const publishedAt = published ? (existing.publishedAt || new Date()) : null;
@@ -1046,7 +1055,7 @@ app.put('/api/admin/posts/:id', authMiddleware, async (req, res) => {
                     status,
                     publishedAt,
                     topic?.trim() || null,
-                    null,
+                    parsedEpisode,
                     hashtags?.length ? JSON.stringify(hashtags) : null,
                     readUrl?.trim() || null,
                     listenUrl?.trim() || null,
