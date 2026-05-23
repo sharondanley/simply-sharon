@@ -21,9 +21,23 @@ const ASSETS = {
 };
 
 const IMAGE_DROP_SHADOW = "drop-shadow(1px 3px 7px #180c0c)";
+const INDENT_STEP_PX = 32;
+const DEFAULT_GRID_IMAGE_WIDTH_PERCENT = 100;
+const MIN_GRID_IMAGE_WIDTH_PERCENT = 25;
+const MAX_GRID_IMAGE_WIDTH_PERCENT = 100;
 
 function getLegacyGridDimensions(layout?: string) {
   return layout === "3x3" ? { rows: 3, columns: 3 } : { rows: 1, columns: 3 };
+}
+
+function clampParagraphIndentLevel(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : 0;
+  return Math.max(0, Math.min(8, Math.round(normalized)));
+}
+
+function clampGridImageWidthPercent(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_GRID_IMAGE_WIDTH_PERCENT;
+  return Math.max(MIN_GRID_IMAGE_WIDTH_PERCENT, Math.min(MAX_GRID_IMAGE_WIDTH_PERCENT, Math.round(normalized)));
 }
 
 function sanitizeGrid(block: BlogBlock) {
@@ -51,6 +65,8 @@ function ensureGridCells(block: BlogBlock) {
       caption: existing?.caption || "",
       fontSize: existing?.fontSize,
       textColor: existing?.textColor,
+      indentLevel: existing?.indentLevel,
+      imageWidthPercent: existing?.imageWidthPercent,
     };
   });
 }
@@ -83,7 +99,7 @@ function renderIntroBlock(block?: BlogBlock | null) {
     default: {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
-        <div className="blog-post-rich-text" style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+        <div className="blog-post-rich-text" style={{ width: "100%", fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000", marginLeft: `${clampParagraphIndentLevel(block.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
       );
     }
   }
@@ -123,10 +139,10 @@ function renderBlock(block: BlogBlock, index: number) {
               return (
                 <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
                   {cell.contentType === "paragraph" ? (
-                    <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827" }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
+                    <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                   ) : cell.url ? (
                     <>
-                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "center", filter: IMAGE_DROP_SHADOW }} />
+                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "center", filter: IMAGE_DROP_SHADOW }} />
                       {cell.caption ? (
                         <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
                       ) : null}
@@ -151,11 +167,11 @@ function renderBlock(block: BlogBlock, index: number) {
           <div className="blog-post-media-text" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: "28px", alignItems: "start" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {imageCell.url ? (
-                <img src={imageCell.url} alt={imageCell.caption || "Feature image"} style={{ width: "100%", height: "auto", maxHeight: "720px", objectFit: "contain", filter: IMAGE_DROP_SHADOW }} />
+                <img src={imageCell.url} alt={imageCell.caption || "Feature image"} style={{ width: `${clampGridImageWidthPercent(imageCell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", maxHeight: "720px", objectFit: "contain", filter: IMAGE_DROP_SHADOW }} />
               ) : null}
               {imageCell.caption ? <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{imageCell.caption}</span> : null}
             </div>
-            <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${paragraphFontSize}px`, lineHeight: `${Math.round(paragraphFontSize * 1.35)}px`, color: paragraphCell.textColor || "#111827" }} dangerouslySetInnerHTML={{ __html: paragraphCell.content || "" }} />
+            <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${paragraphFontSize}px`, lineHeight: `${Math.round(paragraphFontSize * 1.35)}px`, color: paragraphCell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(paragraphCell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: paragraphCell.content || "" }} />
           </div>
         </div>
       );
@@ -192,7 +208,7 @@ function renderBlock(block: BlogBlock, index: number) {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
         <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
-          <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000" }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
+          <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000", marginLeft: `${clampParagraphIndentLevel(block.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
     }
@@ -276,17 +292,22 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
         }
 
         .blog-post-rich-text ol {
-          list-style: decimal;
+          list-style-type: decimal;
           list-style-position: outside;
-          padding-left: 1.6em;
-          margin: 0.5em 0;
+          padding-left: 1.8em;
+          margin: 0.65em 0 0.65em 1.2em;
+        }
+
+        .blog-post-rich-text ol li::marker {
+          font-weight: 600;
+          color: #111827;
         }
 
         .blog-post-rich-text ul {
           list-style: disc;
           list-style-position: outside;
-          padding-left: 1.6em;
-          margin: 0.5em 0;
+          padding-left: 1.8em;
+          margin: 0.65em 0 0.65em 1.2em;
         }
 
         .blog-post-rich-text li {

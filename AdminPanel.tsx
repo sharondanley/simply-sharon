@@ -85,6 +85,8 @@ type GridCell = {
   caption?: string;
   fontSize?: number;
   textColor?: string;
+  indentLevel?: number;
+  imageWidthPercent?: number;
 };
 
 type PostActionKey = "read" | "listen" | "watch";
@@ -462,6 +464,7 @@ type Block = {
   caption?: string;
   fontSize?: number;
   textColor?: string;
+  indentLevel?: number;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];
@@ -473,6 +476,11 @@ const MIN_GRID_SIZE = 1;
 const DEFAULT_PARAGRAPH_FONT_SIZE = 36;
 const MIN_PARAGRAPH_FONT_SIZE = 12;
 const MAX_PARAGRAPH_FONT_SIZE = 72;
+const INDENT_STEP_PX = 32;
+const MAX_PARAGRAPH_INDENT_LEVEL = 8;
+const DEFAULT_GRID_IMAGE_WIDTH_PERCENT = 100;
+const MIN_GRID_IMAGE_WIDTH_PERCENT = 25;
+const MAX_GRID_IMAGE_WIDTH_PERCENT = 100;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
@@ -485,6 +493,16 @@ function clampGridValue(value: number, max: number) {
 function clampParagraphFontSize(value?: number) {
   const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_PARAGRAPH_FONT_SIZE;
   return Math.max(MIN_PARAGRAPH_FONT_SIZE, Math.min(MAX_PARAGRAPH_FONT_SIZE, Math.round(normalized)));
+}
+
+function clampParagraphIndentLevel(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : 0;
+  return Math.max(0, Math.min(MAX_PARAGRAPH_INDENT_LEVEL, Math.round(normalized)));
+}
+
+function clampGridImageWidthPercent(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_GRID_IMAGE_WIDTH_PERCENT;
+  return Math.max(MIN_GRID_IMAGE_WIDTH_PERCENT, Math.min(MAX_GRID_IMAGE_WIDTH_PERCENT, Math.round(normalized)));
 }
 
 function normalizeHexColor(value: string | undefined, fallback: string) {
@@ -534,6 +552,8 @@ function normalizeGridCell(cell?: GridCell): GridCell {
     caption: cell?.caption || "",
     fontSize: clampParagraphFontSize(cell?.fontSize),
     textColor: cell?.textColor || undefined,
+    indentLevel: clampParagraphIndentLevel(cell?.indentLevel),
+    imageWidthPercent: clampGridImageWidthPercent(cell?.imageWidthPercent),
   };
 }
 
@@ -597,7 +617,7 @@ function createBlock(type: BlockType): Block {
   }
 
   if (type === "paragraph") {
-    return { id: generateId(), type, fontSize: DEFAULT_PARAGRAPH_FONT_SIZE };
+    return { id: generateId(), type, fontSize: DEFAULT_PARAGRAPH_FONT_SIZE, indentLevel: 0 };
   }
 
   return { id: generateId(), type };
@@ -620,6 +640,7 @@ function RichTextToolbar({
 }) {
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const fontSize = clampParagraphFontSize(block.fontSize);
+  const indentLevel = clampParagraphIndentLevel(block.indentLevel);
   const [fontSizeInput, setFontSizeInput] = useState(String(fontSize));
 
   useEffect(() => {
@@ -836,49 +857,76 @@ function RichTextToolbar({
         </button>
       </div>
       {block.type === "paragraph" && (
-        <div className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleFontSizeStep(-1);
-            }}
-            className={toolButtonClass(false)}
-            title="Decrease font size"
-          >
-            <Minus size={14} />
-          </button>
-          <input
-            type="number"
-            min={MIN_PARAGRAPH_FONT_SIZE}
-            max={MAX_PARAGRAPH_FONT_SIZE}
-            value={fontSizeInput}
-            onChange={(e) => setFontSizeInput(e.target.value)}
-            onBlur={commitFontSizeInput}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
+        <>
+          <div className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
+            <button
+              type="button"
+              onMouseDown={(e) => {
                 e.preventDefault();
-                commitFontSizeInput();
-                window.setTimeout(() => {
-                  editorRef.current?.focus();
-                }, 0);
-              }
-            }}
-            className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
-            title="Paragraph font size"
-          />
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleFontSizeStep(1);
-            }}
-            className={toolButtonClass(false)}
-            title="Increase font size"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
+                onBlockChange({ ...block, indentLevel: clampParagraphIndentLevel(indentLevel - 1) });
+              }}
+              className={toolButtonClass(false)}
+              title="Decrease paragraph indent"
+            >
+              <span className="text-sm font-bold leading-none">⇤</span>
+            </button>
+            <span className="min-w-[3.25rem] text-center text-xs font-bold uppercase tracking-[0.16em]">Indent</span>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onBlockChange({ ...block, indentLevel: clampParagraphIndentLevel(indentLevel + 1) });
+              }}
+              className={toolButtonClass(false)}
+              title="Increase paragraph indent"
+            >
+              <span className="text-sm font-bold leading-none">⇥</span>
+            </button>
+          </div>
+          <div className={`flex items-center gap-2 rounded-lg border px-2 py-1 ${dark ? "border-gray-500 text-gray-100" : "border-gray-300 text-gray-800"}`}>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleFontSizeStep(-1);
+              }}
+              className={toolButtonClass(false)}
+              title="Decrease font size"
+            >
+              <Minus size={14} />
+            </button>
+            <input
+              type="number"
+              min={MIN_PARAGRAPH_FONT_SIZE}
+              max={MAX_PARAGRAPH_FONT_SIZE}
+              value={fontSizeInput}
+              onChange={(e) => setFontSizeInput(e.target.value)}
+              onBlur={commitFontSizeInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitFontSizeInput();
+                  window.setTimeout(() => {
+                    editorRef.current?.focus();
+                  }, 0);
+                }
+              }}
+              className={`w-16 bg-transparent text-center text-sm font-semibold outline-none ${dark ? "text-gray-100" : "text-gray-900"}`}
+              title="Paragraph font size"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleFontSizeStep(1);
+              }}
+              className={toolButtonClass(false)}
+              title="Increase font size"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -999,6 +1047,7 @@ function RichTextBlock({
         fontSize: `${clampParagraphFontSize(block.fontSize)}px`,
         lineHeight: `${Math.round(clampParagraphFontSize(block.fontSize) * 1.55)}px`,
         color: resolvedTextColor,
+        marginLeft: `${clampParagraphIndentLevel(block.indentLevel) * INDENT_STEP_PX}px`,
       }
     : { color: resolvedTextColor };
 
@@ -1217,6 +1266,7 @@ function BlockEditor({
                 content: updatedCellBlock.content || "",
                 fontSize: clampParagraphFontSize(updatedCellBlock.fontSize),
                 textColor: updatedCellBlock.textColor,
+                indentLevel: clampParagraphIndentLevel(updatedCellBlock.indentLevel),
               })}
               dark={dark}
             />
@@ -1368,6 +1418,7 @@ function PostPreview({
                       fontSize: `${clampParagraphFontSize(cell.fontSize)}px`,
                       lineHeight: `${Math.round(clampParagraphFontSize(cell.fontSize) * 1.55)}px`,
                       color: cell.textColor || (dark ? "#e5e7eb" : "#1f2937"),
+                      marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px`,
                     }}
                     dangerouslySetInnerHTML={{ __html: cell.content || "<em>Paragraph slot</em>" }}
                   />
@@ -1375,7 +1426,7 @@ function PostPreview({
                 {(cell.contentType === "image" || cell.contentType === "thumbnail") && cell.url ? (
                   <div className="flex h-full flex-col gap-2">
                     <div className={`flex min-h-[180px] items-center justify-center rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-950" : "border-gray-200 bg-white"}`}>
-                      <img src={cell.url} alt={cell.caption || "Grid image"} className="max-h-72 w-full object-contain" />
+                      <img src={cell.url} alt={cell.caption || "Grid image"} className="max-h-72 object-contain" style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto" }} />
                     </div>
                     {cell.caption ? <span className={`text-sm font-['Source_Sans_3'] ${subColor}`}>{cell.caption}</span> : null}
                   </div>
@@ -1399,7 +1450,7 @@ function PostPreview({
             <div className={`rounded-2xl border border-dashed p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-300 bg-gray-50/50"}`}>
               {imageCell.url ? (
                 <div className={`flex min-h-[220px] items-center justify-center rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-950" : "border-gray-200 bg-white"}`}>
-                  <img src={imageCell.url} alt={imageCell.caption || "Feature image"} className="max-h-80 w-full object-contain" />
+                  <img src={imageCell.url} alt={imageCell.caption || "Feature image"} className="max-h-80 object-contain" style={{ width: `${clampGridImageWidthPercent(imageCell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto" }} />
                 </div>
               ) : (
                 <div className={`flex min-h-[220px] items-center justify-center rounded-xl ${dark ? "bg-gray-800 text-gray-500" : "bg-white text-gray-400"}`}>
@@ -1415,6 +1466,7 @@ function PostPreview({
                   fontSize: `${clampParagraphFontSize(paragraphCell.fontSize)}px`,
                   lineHeight: `${Math.round(clampParagraphFontSize(paragraphCell.fontSize) * 1.55)}px`,
                   color: paragraphCell.textColor || (dark ? "#e5e7eb" : "#1f2937"),
+                  marginLeft: `${clampParagraphIndentLevel(paragraphCell.indentLevel) * INDENT_STEP_PX}px`,
                 }}
                 dangerouslySetInnerHTML={{ __html: paragraphCell.content || "<em>Paragraph slot</em>" }}
               />
@@ -1451,6 +1503,7 @@ function PostPreview({
               fontSize: `${paragraphFontSize}px`,
               lineHeight: `${Math.round(paragraphFontSize * 1.55)}px`,
               color: block.textColor || (dark ? "#e5e7eb" : "#1f2937"),
+              marginLeft: `${clampParagraphIndentLevel(block.indentLevel) * INDENT_STEP_PX}px`,
             } : undefined}
             dangerouslySetInnerHTML={{ __html: block.content || "" }}
           />

@@ -17,6 +17,8 @@ export type GridCell = {
   caption?: string;
   fontSize?: number;
   textColor?: string;
+  indentLevel?: number;
+  imageWidthPercent?: number;
 };
 
 export type BlogBlock = {
@@ -27,6 +29,7 @@ export type BlogBlock = {
   caption?: string;
   fontSize?: number;
   textColor?: string;
+  indentLevel?: number;
   layout?: GridLayout;
   grid?: GridDimensions;
   cells?: GridCell[];

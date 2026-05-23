@@ -31,6 +31,8 @@ type GridCell = {
   caption?: string;
   fontSize?: number;
   textColor?: string;
+  indentLevel?: number;
+  imageWidthPercent?: number;
 };
 
 type GridBlock = {
@@ -56,6 +58,10 @@ const MAX_GRID_ROWS = 6;
 const MAX_GRID_COLUMNS = 3;
 const MIN_GRID_SIZE = 1;
 const DEFAULT_PARAGRAPH_FONT_SIZE = 36;
+const MAX_PARAGRAPH_INDENT_LEVEL = 8;
+const DEFAULT_GRID_IMAGE_WIDTH_PERCENT = 100;
+const MIN_GRID_IMAGE_WIDTH_PERCENT = 25;
+const MAX_GRID_IMAGE_WIDTH_PERCENT = 100;
 
 function generateId() {
   return Math.random().toString(36).slice(2);
@@ -72,6 +78,16 @@ function sanitizeGrid(grid?: Partial<GridDimensions>): GridDimensions {
   };
 }
 
+function clampParagraphIndentLevel(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : 0;
+  return Math.max(0, Math.min(MAX_PARAGRAPH_INDENT_LEVEL, Math.round(normalized)));
+}
+
+function clampGridImageWidthPercent(value?: number) {
+  const normalized = Number.isFinite(value) ? Number(value) : DEFAULT_GRID_IMAGE_WIDTH_PERCENT;
+  return Math.max(MIN_GRID_IMAGE_WIDTH_PERCENT, Math.min(MAX_GRID_IMAGE_WIDTH_PERCENT, Math.round(normalized)));
+}
+
 function getCellCount(grid: GridDimensions) {
   return grid.rows * grid.columns;
 }
@@ -85,6 +101,8 @@ function normalizeCell(cell?: GridCell, fallbackContentType: GridCellContentType
     caption: cell?.caption || "",
     fontSize: Number.isFinite(cell?.fontSize) ? Math.round(Number(cell?.fontSize)) : DEFAULT_PARAGRAPH_FONT_SIZE,
     textColor: cell?.textColor || undefined,
+    indentLevel: clampParagraphIndentLevel(cell?.indentLevel),
+    imageWidthPercent: clampGridImageWidthPercent(cell?.imageWidthPercent),
   };
 }
 
@@ -249,12 +267,39 @@ function SortableGridCell({
             placeholder={cell.contentType === "thumbnail" ? "Thumbnail label (optional)" : "Caption (optional)"}
             className={inputClass}
           />
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px] md:items-end">
+            <label className="block">
+              <span className={`block text-sm font-semibold mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Image width</span>
+              <input
+                type="range"
+                min={MIN_GRID_IMAGE_WIDTH_PERCENT}
+                max={MAX_GRID_IMAGE_WIDTH_PERCENT}
+                step={5}
+                value={clampGridImageWidthPercent(cell.imageWidthPercent)}
+                onChange={(e) => onUpdate({ imageWidthPercent: clampGridImageWidthPercent(Number.parseInt(e.target.value, 10)) })}
+                className="w-full"
+              />
+            </label>
+            <label className="block">
+              <span className={`block text-sm font-semibold mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Width %</span>
+              <input
+                type="number"
+                min={MIN_GRID_IMAGE_WIDTH_PERCENT}
+                max={MAX_GRID_IMAGE_WIDTH_PERCENT}
+                step={5}
+                value={clampGridImageWidthPercent(cell.imageWidthPercent)}
+                onChange={(e) => onUpdate({ imageWidthPercent: clampGridImageWidthPercent(Number.parseInt(e.target.value || String(DEFAULT_GRID_IMAGE_WIDTH_PERCENT), 10)) })}
+                className={inputClass}
+              />
+            </label>
+          </div>
           {cell.url ? (
             <div className={`flex min-h-[12rem] items-center justify-center rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-950" : "border-gray-200 bg-white"}`}>
               <img
                 src={cell.url}
                 alt={cell.caption || "Grid image"}
-                className="max-h-72 w-full object-contain"
+                style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", objectFit: "contain" }}
+                className="max-h-72"
               />
             </div>
           ) : (
@@ -320,6 +365,8 @@ export function GridBlockEditor({
             caption: updates.caption ?? cell.caption ?? "",
             fontSize: updates.fontSize ?? cell.fontSize ?? DEFAULT_PARAGRAPH_FONT_SIZE,
             textColor: updates.textColor ?? cell.textColor,
+            indentLevel: updates.indentLevel ?? cell.indentLevel ?? 0,
+            imageWidthPercent: updates.imageWidthPercent ?? cell.imageWidthPercent ?? DEFAULT_GRID_IMAGE_WIDTH_PERCENT,
           }
         : cell
     ));
