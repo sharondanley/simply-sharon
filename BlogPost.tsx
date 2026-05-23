@@ -53,7 +53,7 @@ function getCustomGridTemplateColumns(block: BlogBlock, cells: Array<ReturnType<
   }
 
   return firstRowCells
-    .map((cell) => (cell.contentType === "paragraph" ? "minmax(0, 1fr)" : "max-content"))
+    .map((cell) => (cell.contentType === "paragraph" ? "minmax(0, 1fr)" : "fit-content(100%)"))
     .join(" ");
 }
 
@@ -151,16 +151,16 @@ function renderBlock(block: BlogBlock, index: number) {
       const gridTemplateColumns = getCustomGridTemplateColumns(block, cells);
       return (
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
-          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns, gap: "12px", alignItems: "start", justifyContent: "start" }}>
+          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns, gap: "4px", alignItems: "start", justifyContent: "start", justifyItems: "start", width: "100%" }}>
             {cells.map((cell) => {
               const fontSize = Math.max(12, Math.min(72, Math.round(cell.fontSize ?? 36)));
               return (
-                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", alignItems: cell.contentType === "paragraph" ? "stretch" : "flex-start", gap: "8px", background: "transparent", padding: 0, border: "none", borderRadius: 0, width: cell.contentType === "paragraph" ? "100%" : "max-content", maxWidth: "100%", justifySelf: cell.contentType === "paragraph" ? "stretch" : "start" }}>
+                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "flex-start", alignItems: cell.contentType === "paragraph" ? "stretch" : "flex-start", gap: "6px", background: "transparent", padding: 0, border: "none", borderRadius: 0, width: cell.contentType === "paragraph" ? "100%" : "fit-content", maxWidth: cell.contentType === "paragraph" ? "100%" : "fit-content", justifySelf: cell.contentType === "paragraph" ? "stretch" : "start", marginRight: 0 }}>
                   {cell.contentType === "paragraph" ? (
                     <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                   ) : cell.url ? (
                     <>
-                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "flex-start", filter: IMAGE_DROP_SHADOW }} />
+                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "auto" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "100%" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "flex-start", display: "block", marginRight: 0, filter: IMAGE_DROP_SHADOW }} />
                       {cell.caption ? (
                         <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
                       ) : null}
@@ -247,18 +247,26 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
     const scrollToTop = () => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     };
 
+    const timeoutIds = [0, 80, 180, 320].map((delay) => window.setTimeout(scrollToTop, delay));
+    const firstFrameId = window.requestAnimationFrame(scrollToTop);
+    const secondFrameId = window.requestAnimationFrame(() => window.requestAnimationFrame(scrollToTop));
+    const handlePageShow = () => scrollToTop();
+
+    window.addEventListener("pageshow", handlePageShow);
     scrollToTop();
-    const frameId = window.requestAnimationFrame(scrollToTop);
-    const timeoutId = window.setTimeout(scrollToTop, 120);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
-      window.clearTimeout(timeoutId);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.cancelAnimationFrame(firstFrameId);
+      window.cancelAnimationFrame(secondFrameId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
       window.history.scrollRestoration = previousScrollRestoration || "auto";
     };
-  }, [id, slug, loading]);
+  }, [id, slug, post?.id, loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -355,7 +363,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
         .blog-post-rich-text br {
           display: block;
-          line-height: 0.28em;
+          line-height: 0.16em;
           margin-top: 0;
         }
 
@@ -456,7 +464,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                   </div>
                 ) : null}
               </div>
-                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "110px" }}>
+                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "100px" }}>
                 <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", filter: IMAGE_DROP_SHADOW }} />
               </div>
             </div>
