@@ -53,7 +53,7 @@ function getCustomGridTemplateColumns(block: BlogBlock, cells: Array<ReturnType<
   }
 
   return firstRowCells
-    .map((cell) => (cell.contentType === "paragraph" ? "minmax(0, 1fr)" : "fit-content(420px)"))
+    .map((cell) => (cell.contentType === "paragraph" ? "minmax(0, 1fr)" : "max-content"))
     .join(" ");
 }
 
@@ -155,7 +155,7 @@ function renderBlock(block: BlogBlock, index: number) {
             {cells.map((cell) => {
               const fontSize = Math.max(12, Math.min(72, Math.round(cell.fontSize ?? 36)));
               return (
-                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", alignItems: cell.contentType === "paragraph" ? "stretch" : "flex-start", gap: "10px", background: "transparent", padding: 0, border: "none", borderRadius: 0, width: cell.contentType === "paragraph" ? "100%" : "fit-content", maxWidth: "100%" }}>
+                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", alignItems: cell.contentType === "paragraph" ? "stretch" : "flex-start", gap: "8px", background: "transparent", padding: 0, border: "none", borderRadius: 0, width: cell.contentType === "paragraph" ? "100%" : "max-content", maxWidth: "100%", justifySelf: cell.contentType === "paragraph" ? "stretch" : "start" }}>
                   {cell.contentType === "paragraph" ? (
                     <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                   ) : cell.url ? (
@@ -355,8 +355,8 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
         .blog-post-rich-text br {
           display: block;
-          line-height: 0.55em;
-          margin-top: 0.1em;
+          line-height: 0.28em;
+          margin-top: 0;
         }
 
         @media (max-width: 767px) {

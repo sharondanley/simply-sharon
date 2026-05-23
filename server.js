@@ -62,6 +62,28 @@ function slugify(str) {
         .replace(/^-|-$/g, '');
 }
 
+async function generateUniqueSlug(title, excludeId = null) {
+    const baseSlug = slugify(title) || 'post';
+    let candidate = baseSlug;
+    let suffix = 2;
+
+    while (true) {
+        const params = excludeId ? [candidate, excludeId] : [candidate];
+        const excludeClause = excludeId ? ' AND id <> ?' : '';
+        const [rows] = await dbPromise.query(
+            `SELECT id FROM posts WHERE slug = ?${excludeClause} LIMIT 1`,
+            params
+        );
+
+        if (!rows.length) {
+            return candidate;
+        }
+
+        candidate = `${baseSlug}-${suffix}`;
+        suffix += 1;
+    }
+}
+
 function authMiddleware(req, res, next) {
     const token = req.cookies?.admin_token;
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
@@ -953,8 +975,7 @@ app.post('/api/admin/posts', authMiddleware, async (req, res) => {
     const parsedEpisode = Number.isInteger(Number(episode)) && Number(episode) > 0
         ? Number(episode)
         : null;
-    const baseSlug = slugify(title.trim());
-    const slug = baseSlug + '-' + Date.now();
+    const slug = await generateUniqueSlug(title.trim());
     const content = JSON.stringify(blocks || []);
     const status = published ? 'published' : 'draft';
     const publishedAt = published ? new Date() : null;
