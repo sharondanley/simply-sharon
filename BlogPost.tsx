@@ -40,6 +40,23 @@ function clampGridImageWidthPercent(value?: number) {
   return Math.max(MIN_GRID_IMAGE_WIDTH_PERCENT, Math.min(MAX_GRID_IMAGE_WIDTH_PERCENT, Math.round(normalized)));
 }
 
+function getCustomGridTemplateColumns(block: BlogBlock, cells: Array<ReturnType<typeof ensureGridCells>[number]>) {
+  const columns = getGridColumnCount(block);
+  if (columns <= 1) return "minmax(0, 1fr)";
+
+  const firstRowCells = cells.slice(0, columns);
+  const hasParagraph = firstRowCells.some((cell) => cell.contentType === "paragraph");
+  const hasMedia = firstRowCells.some((cell) => cell.contentType !== "paragraph");
+
+  if (!hasParagraph || !hasMedia) {
+    return `repeat(${columns}, minmax(0, 1fr))`;
+  }
+
+  return firstRowCells
+    .map((cell) => (cell.contentType === "paragraph" ? "minmax(0, 1fr)" : "fit-content(420px)"))
+    .join(" ");
+}
+
 function sanitizeGrid(block: BlogBlock) {
   const legacy = getLegacyGridDimensions(block.layout);
   return {
@@ -131,18 +148,19 @@ function renderBlock(block: BlogBlock, index: number) {
     case "customGrid": {
       const cells = ensureGridCells(block);
       const columns = getGridColumnCount(block);
+      const gridTemplateColumns = getCustomGridTemplateColumns(block, cells);
       return (
         <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
-          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: "24px" }}>
+          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns, gap: "12px", alignItems: "start", justifyContent: "start" }}>
             {cells.map((cell) => {
               const fontSize = Math.max(12, Math.min(72, Math.round(cell.fontSize ?? 36)));
               return (
-                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", gap: "16px", background: "transparent", padding: 0, border: "none", borderRadius: 0 }}>
+                <div key={cell.id} style={{ minHeight: cell.contentType === "thumbnail" ? "220px" : "280px", display: "flex", flexDirection: "column", justifyContent: cell.contentType === "paragraph" ? "flex-start" : "center", alignItems: cell.contentType === "paragraph" ? "stretch" : "flex-start", gap: "10px", background: "transparent", padding: 0, border: "none", borderRadius: 0, width: cell.contentType === "paragraph" ? "100%" : "fit-content", maxWidth: "100%" }}>
                   {cell.contentType === "paragraph" ? (
                     <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                   ) : cell.url ? (
                     <>
-                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "center", filter: IMAGE_DROP_SHADOW }} />
+                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: "100%", height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "flex-start", filter: IMAGE_DROP_SHADOW }} />
                       {cell.caption ? (
                         <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
                       ) : null}
@@ -220,6 +238,27 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [canReturnToAdmin, setCanReturnToAdmin] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    };
+
+    scrollToTop();
+    const frameId = window.requestAnimationFrame(scrollToTop);
+    const timeoutId = window.setTimeout(scrollToTop, 120);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+      window.history.scrollRestoration = previousScrollRestoration || "auto";
+    };
+  }, [id, slug, loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +351,12 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
 
         .blog-post-rich-text li {
           margin: 0.18em 0;
+        }
+
+        .blog-post-rich-text br {
+          display: block;
+          line-height: 0.55em;
+          margin-top: 0.1em;
         }
 
         @media (max-width: 767px) {
@@ -411,7 +456,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                   </div>
                 ) : null}
               </div>
-                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "10px" }}>
+                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "110px" }}>
                 <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", filter: IMAGE_DROP_SHADOW }} />
               </div>
             </div>
