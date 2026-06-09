@@ -164,42 +164,7 @@ export default function BlogcastArchive() {
           </div>
 
           {/* Header section */}
-          <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 45, paddingTop: 53 }}>
-
-            {/* Showcase card */}
-            <div style={{ width: 1698, background: "#f0f0f0", borderRadius: 14, paddingTop: 48, paddingBottom: 48, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 25 }}>
-              <div style={{ width: "100%", padding: 10, display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
-                <div style={{ padding: "0 156px", display: "flex", justifyContent: "center" }}>
-                  <span style={{ fontFamily: "Italianno, serif", fontSize: 96, color: "#000", textAlign: "center" as const }}>The Blogcast</span>
-                </div>
-                <div style={{ padding: "0 42px", display: "flex", justifyContent: "center" }}>
-                  <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 36, fontWeight: 700, color: "#000", textAlign: "center" as const }}>Beauty · Wellness · Wisdom</span>
-                </div>
-                <div style={{ paddingTop: 46, display: "flex", justifyContent: "center" }}>
-                  <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 64, fontWeight: 700, color: "#000", textAlign: "center" as const }}>WELCOME !</span>
-                </div>
-                <div style={{ paddingTop: 27, display: "flex", justifyContent: "center" }}>
-                  <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 36, fontWeight: 400, color: "#000", textAlign: "center" as const, maxWidth: 1003 }}>
-                    You're currently on the landing page of my Blogcast. Enjoy exploring and thank you for being here.
-                  </span>
-                </div>
-              </div>
-              <div style={{ width: 1167, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 51 }}>
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "stretch", gap: 33 }}>
-                  {[
-                    { icon: A.readIcon, label: "Read", text: "Deep dives into beauty myths, practical advice, and inspiring stories", width: 356 },
-                    { icon: A.listenIcon, label: "Listen", text: "Empowering conversations on personal growth, wisdom, and holistic health", width: 366 },
-                    { icon: A.watchIcon, label: "Watch", text: "Visual tutorials and real talk about living with strength and grace", width: 330 },
-                  ].map(({ icon, label, text, width }) => (
-                    <div key={label} style={{ width, paddingTop: 29, paddingBottom: 29, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 33 }}>
-                      <img src={icon} alt={label} style={{ width: 80, height: 80 }} />
-                      <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#000" }}>{label}</span>
-                      <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 28, color: "#000", textAlign: "center" as const }}>{text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 0, paddingTop: 10 }}>
 
             {/* Search area */}
             <div style={{ width: 1920, minHeight: 276, paddingTop: 20, paddingBottom: 20, background: "#4d4d4d", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 36 }}>

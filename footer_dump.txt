@@ -63,12 +63,12 @@ export function SiteFooter() {
             <div style={{ width: "1402px", display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "59px" }}>
               <div style={{ width: "1364px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "72px" }}>
                 <div style={{ width: "100%", paddingTop: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "20px" }}>
-                  <div style={{ fontFamily: "Italianno, cursive", fontWeight: 400, fontSize: "96px", lineHeight: "120px", color: "#FFFFFF", textAlign: "center", paddingLeft: "100px" }}>
+                  <div style={{ fontFamily: "Italianno, cursive", fontWeight: 400, fontSize: "96px", lineHeight: "120px", color: "#FFFFFF", textAlign: "center" }}>
                     Connect with Sharon
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "32px", paddingLeft: "100px" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "32px" }}>
                   <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "29px" }}>
                     <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Email:</span>
                     <a href={emailHref} style={{ ...helvetica36, textDecoration: "underline" }}>{email}</a>
@@ -91,12 +91,12 @@ export function SiteFooter() {
                         </div>
                         <p style={{ ...helvetica36, margin: "4px 0 0 0", paddingLeft: "200px" }}>For biological women going gray; please confirm your agreement to the join question.</p>
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", paddingLeft: "20px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "16px" }}>
                           <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Public Page:</span>
                           <a href="https://www.facebook.com/SharonDanleyBeauty" target="_blank" rel="noopener noreferrer" style={{ ...helvetica36, textDecoration: "underline" }}>Facebook.com/SharonDanleyBeauty</a>
                         </div>
-                        <p style={{ ...helvetica36, margin: "4px 0 0 0", paddingLeft: "175px" }}>For everyone, including those who've completed their gray hair journey.</p>
+                        <p style={{ ...helvetica36, margin: "4px 0 0 0", paddingLeft: "210px" }}>For everyone, including those who've completed their gray hair journey.</p>
                       </div>
                     </div>
                   </div>
@@ -109,11 +109,11 @@ export function SiteFooter() {
             </div>
           </div>
 
-          <div style={{ width: "1556px", display: "flex", flexDirection: "column", alignItems: "flex-start", paddingLeft: "455px", gap: "24px" }}>
-            <p style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "30px", lineHeight: "38px", color: "#FFFFFF", textAlign: "left", width: "1100px", margin: 0 }}>
+          <div style={{ width: "1556px", display: "flex", flexDirection: "column", alignItems: "flex-start", paddingLeft: "180px", gap: "24px" }}>
+            <p style={{ ...sourceSans24, textAlign: "left", width: "1100px", margin: 0 }}>
               Not monetized, sponsored, or compensated. Shared freely to inspire a <strong>legacy of giving in honour of my children Andrea &amp; Matthew Main</strong> and to encourage paying it forward in your own way.
             </p>
-            <p style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: "30px", lineHeight: "38px", color: "#FFFFFF", textAlign: "left", margin: 0 }}>© 2025 Sharon Danley | All images, content and design created by Sharon Danley.</p>
+            <p style={{ ...sourceSans24, textAlign: "left", margin: 0 }}>© 2025 Sharon Danley | All images, content and design created by Sharon Danley.</p>
             <a
               href="/admin"
               style={{
@@ -123,7 +123,6 @@ export function SiteFooter() {
                 color: "rgba(255,255,255,0.46)",
                 textDecoration: "none",
                 transition: "opacity 0.2s ease",
-                paddingLeft: "400px",
               }}
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
               onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.78")}

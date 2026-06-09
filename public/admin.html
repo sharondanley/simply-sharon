@@ -8,6 +8,58 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Source+Sans+3:ital,opsz,wght@0,8..32,300;0,8..32,400;0,8..32,600;0,8..32,700;1,8..32,300;1,8..32,400&display=swap" rel="stylesheet" />
+  <style>
+    /* Base font size reduction for rem/em units */
+    html { font-size: 80% !important; }
+  </style>
+  <script>
+    // Reduce all inline px font-sizes by 30%
+    (function() {
+      const SCALE = 0.8;
+      function scaleFont(el) {
+        var fs = el.style.fontSize;
+        if (fs && fs.indexOf('px') !== -1) {
+          var val = parseFloat(fs);
+          if (!isNaN(val) && !el.dataset.fontScaled) {
+            el.style.fontSize = (val * SCALE) + 'px';
+            el.dataset.fontScaled = '1';
+          }
+        }
+      }
+      function scaleAll() {
+        document.querySelectorAll('[style]').forEach(scaleFont);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          scaleAll();
+          new MutationObserver(function(muts) {
+            muts.forEach(function(m) {
+              m.addedNodes.forEach(function(n) {
+                if (n.nodeType === 1) {
+                  scaleFont(n);
+                  n.querySelectorAll && n.querySelectorAll('[style]').forEach(scaleFont);
+                }
+              });
+              if (m.type === 'attributes' && m.target.nodeType === 1) scaleFont(m.target);
+            });
+          }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+        });
+      } else {
+        scaleAll();
+        new MutationObserver(function(muts) {
+          muts.forEach(function(m) {
+            m.addedNodes.forEach(function(n) {
+              if (n.nodeType === 1) {
+                scaleFont(n);
+                n.querySelectorAll && n.querySelectorAll('[style]').forEach(scaleFont);
+              }
+            });
+            if (m.type === 'attributes' && m.target.nodeType === 1) scaleFont(m.target);
+          });
+        }).observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

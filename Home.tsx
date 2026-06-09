@@ -5,9 +5,10 @@
  * Colors: Dark charcoal/gray backgrounds, white text on dark, black text on white
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronUp, Mail, Youtube, Facebook } from "lucide-react";
 import { SiteLayout } from "./src/components/SiteLayout";
+import { ScaledSection } from "./src/components/ScaledSection";
 
 // ─── Nav Items ───────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -275,9 +276,9 @@ function DesktopGalleryDropdowns() {
 // ─── Playlist Buttons ─────────────────────────────────────────────────────────
 function DesktopPlaylistButton({ icon, label }: { icon: string; label: string }) {
   return (
-    <button className="px-[23px] py-4 rounded-[98px] outline outline-[3px] outline-offset-[-3px] outline-black flex justify-start items-center gap-2.5 hover:bg-black hover:text-white transition-colors group">
+    <button className="px-[23px] py-4 rounded-[98px] outline outline-[3px] outline-offset-[-3px] outline-black flex justify-start items-center gap-2.5 hover:bg-black hover:text-white transition-colors group max-w-full">
       <img src={icon} alt="" className="w-[53px] h-[53px] flex-shrink-0" />
-      <span className="text-black text-[32px] font-bold font-['Source_Sans_3'] group-hover:text-white whitespace-nowrap">
+      <span className="text-black text-[32px] font-bold font-['Source_Sans_3'] group-hover:text-white whitespace-normal">
         {label}
       </span>
     </button>
@@ -286,9 +287,9 @@ function DesktopPlaylistButton({ icon, label }: { icon: string; label: string })
 
 function MobilePlaylistButton({ icon, label }: { icon: string; label: string }) {
   return (
-    <button className="px-2 py-1 rounded-[18px] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-start items-center gap-2 hover:bg-black hover:text-white transition-colors group">
+    <button className="px-2 py-1 rounded-[18px] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-start items-center gap-2 hover:bg-black hover:text-white transition-colors group max-w-full">
       <img src={icon} alt="" className="w-[25px] h-[25px] flex-shrink-0" />
-      <span className="text-black text-2xl font-bold font-['Source_Sans_3'] group-hover:text-white whitespace-nowrap">
+      <span className="text-black text-lg sm:text-2xl font-bold font-['Source_Sans_3'] group-hover:text-white whitespace-normal">
         {label}
       </span>
     </button>
@@ -312,33 +313,7 @@ const heroRayOverlay = {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Home() {
-  const aboutDesktopRef = useRef<HTMLElement | null>(null);
-  const [aboutDesktopHeight, setAboutDesktopHeight] = useState(2100);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const updateAboutDesktopHeight = () => {
-      if (aboutDesktopRef.current) {
-        setAboutDesktopHeight(Math.ceil(aboutDesktopRef.current.scrollHeight));
-      }
-    };
-
-    updateAboutDesktopHeight();
-    window.addEventListener("resize", updateAboutDesktopHeight);
-
-    const observer = typeof ResizeObserver !== "undefined" && aboutDesktopRef.current
-      ? new ResizeObserver(() => updateAboutDesktopHeight())
-      : null;
-
-    if (observer && aboutDesktopRef.current) {
-      observer.observe(aboutDesktopRef.current);
-    }
-
-    return () => {
-      window.removeEventListener("resize", updateAboutDesktopHeight);
-      observer?.disconnect();
-    };
-  }, []);
 
   return (
     <SiteLayout background="#fff" includeFooter={true}>
@@ -376,7 +351,7 @@ export default function Home() {
           {/* hero-text-group: flex col, gap 20px, 1039×791px */}
           <div
             className="flex flex-col items-center"
-            style={{ gap: "20px", flex: "0 0 auto" }}
+            style={{ gap: "20px", flex: "1 1 auto", minWidth: 0 }}
           >
             {/* heading-title: Italianno 140px/175px */}
             <div style={{ padding: "10px" }}>
@@ -395,7 +370,7 @@ export default function Home() {
             </div>
 
             {/* heading-subtitle: Italianno 90px/112px */}
-            <div style={{ padding: "0 10px" }}>
+            <div style={{ padding: "0 10px", marginBottom: "30px" }}>
               <h2
                 style={{
                   fontFamily: "Italianno, cursive",
@@ -404,7 +379,7 @@ export default function Home() {
                   lineHeight: "112px",
                   color: "#FFFFFF",
                   margin: 0,
-                  whiteSpace: "nowrap",
+                  whiteSpace: "normal",
                 }}
               >
                 Healthy Beauty &amp; Confident Aging
@@ -412,7 +387,7 @@ export default function Home() {
             </div>
 
             {/* Body-Text-Group: Source Sans Pro 60px/75px, centered */}
-            <div style={{ padding: "10px" }}>
+            <div style={{ padding: "10px", marginBottom: "30px" }}>
               <p
                 style={{
                   fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
@@ -422,28 +397,27 @@ export default function Home() {
                   color: "#FFFFFF",
                   textAlign: "center",
                   margin: 0,
-                  width: "1019px",
                   maxWidth: "100%",
                 }}
               >
                 Achieve Radiant Beauty, Glowing Health<br />
-                Meaningful Aging<br />
+                Meaningful Aging{" "}
                 <span
                   style={{
-                    fontSize: "28px",
+                    fontSize: "35px",
                     lineHeight: 1,
                     display: "inline-block",
                     verticalAlign: "baseline",
                   }}
                 >
                   with
-                </span>{" "}
-                Simplicity, Strength, Style &amp; Grace
+                </span><br />
+                Simplicity, Strength, Style <span style={{ fontSize: "35px", display: "inline-block", verticalAlign: "baseline" }}>&amp;</span> Grace
               </p>
             </div>
 
             {/* Call-to-Action: Italianno 90px/112px, first line margin -18px */}
-            <div className="flex flex-col items-center" style={{ alignSelf: "stretch" }}>
+            <div className="flex flex-col items-center" style={{ alignSelf: "stretch", marginTop: "10px" }}>
               <p
                 style={{
                   fontFamily: "Italianno, cursive",
@@ -466,7 +440,7 @@ export default function Home() {
                   lineHeight: "112px",
                   color: "#FFFFFF",
                   textAlign: "center",
-                  margin: 0,
+                  margin: "-40px 0 0 0",
                   alignSelf: "stretch",
                 }}
               >
@@ -505,16 +479,7 @@ export default function Home() {
       <div id="blogcast" style={{ scrollMarginTop: "120px" }} />
       {/* ── Blogcast Section ── */}
       {/* Desktop Blogcast — 1920px wide, scales like navbar */}
-      <div className="w-full hidden xl:block relative" style={{ height: "1286px", overflow: "visible" }}>
-        <section
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            height: "1286px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection designHeight={1286} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -588,7 +553,7 @@ export default function Home() {
                   height: "60px",
                 }}
               >
-                Wisdom You Can Read, Listen, or Watch
+                Wisdom You Can Read, Listen or Watch
               </span>
             </div>
           </div>
@@ -618,7 +583,7 @@ export default function Home() {
                 height: "100px",
               }}
             >
-              Thoughtful explorations of beauty, wellness, and wisdom for confident aging — in the format that works for you
+                            Thoughtful explorations of beauty, wellness and wisdom for confident aging — in the format that works for you
             </span>
           </div>
 
@@ -675,7 +640,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.readIcon} alt="Read" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Read</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "28px", lineHeight: "32px", textAlign: "center", color: "#000000", width: "356px", height: "96px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "356px", height: "96px" }}>
                     Deep dives into beauty myths, practical advice, and inspiring stories
                   </span>
                 </div>
@@ -693,7 +658,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.listenIcon} alt="Listen" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Listen</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "28px", lineHeight: "32px", textAlign: "center", color: "#000000", width: "354px", height: "96px", padding: "0px 6px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "354px", height: "96px", padding: "0px 6px" }}>
                     Empowering conversations on personal growth, wisdom, and holistic health
                   </span>
                 </div>
@@ -711,7 +676,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.watchIcon} alt="Watch" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Watch</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "28px", lineHeight: "32px", textAlign: "center", color: "#000000", width: "306px", height: "96px", padding: "0px 12px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "306px", height: "96px", padding: "0px 12px" }}>
                     Visual tutorials and real talk about living with strength and grace
                   </span>
                 </div>
@@ -806,60 +771,59 @@ export default function Home() {
               />
             </div>
           </div>
-        </section>
-      </div>
+      </ScaledSection>
 
       {/* Mobile Blogcast */}
-      <section className="w-full py-2.5 xl:hidden flex flex-col justify-start items-start gap-2.5">
+      <section className="w-full py-2.5 xl:hidden flex flex-col justify-start items-start gap-2.5 overflow-hidden">
         <div className="self-stretch p-2.5 flex flex-col justify-start items-start gap-[5px] overflow-hidden">
-          <div className="self-stretch px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-[64px] font-normal font-['Italianno']">Blogcast</span>
+          <div className="self-stretch px-4 sm:px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="text-center text-black text-[48px] sm:text-[64px] font-normal font-['Italianno']">Blogcast</span>
           </div>
-          <div className="self-stretch h-[153px] px-[42px] py-[13px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-4xl font-bold font-['Source_Sans_3']">
+          <div className="self-stretch px-4 sm:px-[42px] py-[13px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="text-center text-black text-2xl sm:text-4xl font-bold font-['Source_Sans_3']">
               Wisdom You Can Read, Listen, or Watch
             </span>
           </div>
         </div>
-        <div className="w-full px-[13px] py-2.5 bg-white inline-flex justify-start items-start gap-[25px] overflow-visible">
-          <div className="w-[159px] h-[172px] flex items-center justify-center overflow-visible p-1 box-border">
-            <img src={ASSETS.blogcastMobileLeft} alt="" className="w-full h-full object-contain block" />
+        <div className="w-full px-[13px] py-2.5 bg-white inline-flex justify-center items-start gap-4 overflow-hidden">
+          <div className="w-[40%] max-w-[159px] flex items-center justify-center overflow-hidden p-1 box-border">
+            <img src={ASSETS.blogcastMobileLeft} alt="" className="w-full h-auto object-contain block" />
           </div>
-          <div className="w-[180px] h-[172px] flex items-center justify-center overflow-visible p-1 box-border">
-            <img src={ASSETS.blogcastMobileRight} alt="" className="w-full h-full object-contain block" />
+          <div className="w-[45%] max-w-[180px] flex items-center justify-center overflow-hidden p-1 box-border">
+            <img src={ASSETS.blogcastMobileRight} alt="" className="w-full h-auto object-contain block" />
           </div>
         </div>
-        <div className="w-full px-[19px] py-2.5 bg-white flex flex-col justify-start items-start gap-2.5 overflow-hidden">
-          <div className="self-stretch px-[37px] py-2.5 inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-[32px] font-normal font-['Source_Sans_3']">
-              Thoughtful explorations of beauty, wellness, and wisdom for confident aging — in the format that works for you
+        <div className="w-full px-3 sm:px-[19px] py-2.5 bg-white flex flex-col justify-start items-start gap-2.5 overflow-hidden">
+          <div className="self-stretch px-3 sm:px-[37px] py-2.5 inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="text-center text-black text-xl sm:text-[32px] font-normal font-['Source_Sans_3']">
+              Thoughtful explorations of beauty, wellness and wisdom for confident aging — in the format that works for you
             </span>
           </div>
           <div className="self-stretch py-2.5 bg-[#d9d9d9] flex flex-col justify-start items-start gap-[33px] overflow-hidden">
             <div className="self-stretch py-[29px] flex flex-col justify-start items-center gap-[33px]">
               <img src={ASSETS.readIcon} alt="Read" className="w-20 h-20" />
               <span className="w-20 text-center text-black text-4xl font-bold font-['Source_Sans_3']">Read</span>
-              <span className="flex-1 text-center text-black text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
+              <span className="flex-1 text-center text-black text-xl sm:text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                 Deep dives into beauty myths, practical advice, and inspiring stories
               </span>
             </div>
             <div className="self-stretch py-[29px] flex flex-col justify-start items-center gap-[33px]">
               <img src={ASSETS.listenIcon} alt="Listen" className="w-20 h-20" />
               <span className="self-stretch text-center text-black text-4xl font-bold font-['Source_Sans_3']">Listen</span>
-              <span className="flex-1 text-center text-black text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
+              <span className="flex-1 text-center text-black text-xl sm:text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                 Empowering conversations on personal growth, wisdom, and holistic health
               </span>
             </div>
             <div className="self-stretch py-[29px] flex flex-col justify-start items-center gap-[33px]">
               <img src={ASSETS.watchIcon} alt="Watch" className="w-20 h-20" />
               <span className="self-stretch text-center text-black text-4xl font-bold font-['Source_Sans_3']">Watch</span>
-              <span className="flex-1 text-center text-black text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
+              <span className="flex-1 text-center text-black text-xl sm:text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>
                 Visual tutorials and real talk about living with strength and grace
               </span>
             </div>
           </div>
-          <div className="self-stretch px-[54px] py-5 inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="w-[323px] text-center text-black text-2xl font-bold font-['Source_Sans_3']">
+          <div className="self-stretch px-4 sm:px-[54px] py-5 inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="max-w-[323px] w-full text-center text-black text-lg sm:text-2xl font-bold font-['Source_Sans_3']">
               Join women who are embracing their authentic beauty and living with purpose
             </span>
           </div>
@@ -876,16 +840,7 @@ export default function Home() {
       <div id="make-betters" style={{ scrollMarginTop: "120px" }} />
       {/* ── Pay-Forward Digital Make-Betters Section ── */}
       {/* Desktop Make-Betters — 1920px wide, scales like navbar */}
-      <div className="w-full hidden xl:block relative" style={{ height: "1554px" }}>
-        <section
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            height: "1554px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection designHeight={1554} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1100,8 +1055,7 @@ export default function Home() {
               />
             </div>
           </div>
-        </section>
-      </div>
+      </ScaledSection>
       {/* Mobile Make-Betters */}
       <section id="make-betters-mobile" className="w-full xl:hidden">
         <img src={ASSETS.makeBetterMobile} alt="Pay-Forward Digital Make-Betters" className="w-full h-auto block" />
@@ -1109,16 +1063,7 @@ export default function Home() {
 
       {/* ── Real Life Make-Betters Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <div className="w-full hidden xl:block relative" style={{ height: "2381px" }}>
-        <section
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            height: "2381px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection designHeight={2381} style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -1356,8 +1301,7 @@ export default function Home() {
               </span>
             </div>
           </div>
-        </section>
-      </div>
+      </ScaledSection>
       {/* Mobile Real-Life Make-Betters */}
       <section className="w-full xl:hidden">
         <img src={ASSETS.realLifeMakeBettersMobile} alt="Real Life Make-Betters" className="w-full h-auto block" />
@@ -1365,16 +1309,7 @@ export default function Home() {
 
       {/* ── Gray is Gorgeous Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <div className="w-full hidden xl:block relative" style={{ height: "2529px" }}>
-        <section
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            height: "2529px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection designHeight={2529} style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -1715,8 +1650,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </section>
-      </div>
+      </ScaledSection>
       {/* Mobile Gray is Gorgeous */}
       <section className="w-full xl:hidden">
         <img src={ASSETS.grayIsGorgeousMobile} alt="Gray is Gorgeous! Own-it Your Way" className="w-full h-auto block" />
@@ -1725,16 +1659,7 @@ export default function Home() {
       <div id="poise" style={{ scrollMarginTop: "120px" }} />
       {/* ── Enjoy Positive LAST-ing Impressions Section ── */}
       {/* Desktop: LAST-ing Impressions — Figma 1920×3050px, bg #D4D4D4, scale transform */}
-      <div className="w-full hidden xl:block relative" style={{ height: "3050px" }}>
-        <section
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            height: "3050px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection designHeight={2500} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1933,11 +1858,10 @@ export default function Home() {
                 gap: "31px",
               }}
             >
-              {[
+                            {[
                 { src: ASSETS.lastingYt1, w: 901, h: 499, alt: "Simply Sharon YouTube Channel" },
-                { src: ASSETS.lastingYt2, w: 901, h: 472, alt: "Blogcast, Beauty Brief, Shorts playlists" },
                 { src: ASSETS.lastingYt3, w: 903, h: 387, alt: "Makeup Techniques, Eye Training, Make-Betters" },
-                { src: ASSETS.lastingYt4, w: 902, h: 205, alt: "Everything Hair playlists" },
+                { src: "/Last section.png", w: 902, h: 205, alt: "Last section" },
                 { src: ASSETS.lastingYt5, w: 902, h: 457, alt: "Hybrid Timeless Interactive Lives" },
               ].map(({ src, w, h, alt }) => (
                 <a
@@ -1999,6 +1923,7 @@ export default function Home() {
               alignItems: "center",
               gap: "10px",
               width: "1189px",
+              marginTop: "-65px",
             }}
           >
             <p
@@ -2016,35 +1941,34 @@ export default function Home() {
               Explore the playlists and videos within each section to begin Mastering your Authenticity.
             </p>
           </div>
-        </section>
-      </div>
+      </ScaledSection>
 
       {/* Mobile LAST-ing Impressions */}
-      <section className="w-full xl:hidden flex flex-col justify-start items-center gap-[29px]">
+      <section className="w-full xl:hidden flex flex-col justify-start items-center gap-[29px] overflow-hidden">
         <div className="self-stretch flex flex-col justify-start items-start gap-[21px]">
-          <div className="self-stretch flex flex-col justify-center items-center gap-2.5">
-            <span className="w-[378px] text-center text-black text-[64px] font-normal font-['Italianno']">
+          <div className="self-stretch flex flex-col justify-center items-center gap-2.5 px-4">
+            <span className="max-w-[378px] w-full text-center text-black text-[48px] sm:text-[64px] font-normal font-['Italianno']">
               Enjoy Positive LAST-ing Impressions
             </span>
           </div>
-          <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-            <span className="flex-1 text-center text-black text-4xl font-bold font-['Source_Sans_3']">
+          <div className="self-stretch inline-flex justify-center items-center gap-2.5 px-4">
+            <span className="flex-1 text-center text-black text-2xl sm:text-4xl font-bold font-['Source_Sans_3']">
               Look, Act, Speak, Think - Your Best
             </span>
           </div>
         </div>
-        <div className="self-stretch px-[19px] flex flex-col justify-start items-start gap-5">
+        <div className="self-stretch px-3 sm:px-[19px] flex flex-col justify-start items-start gap-5">
           {/* LOOK card */}
           <div className="self-stretch px-6 py-[39px] bg-[#939393] flex flex-col justify-start items-center gap-[34px]">
             <span className="text-center text-black text-[32px] font-bold font-['Source_Sans_3']">LOOK</span>
-            <img src={ASSETS.lookImageMobile} alt="Look" className="w-[251px] h-[251px] object-cover" />
-            <span className="w-[304px] text-center text-black text-[27px] font-normal font-['Source_Sans_3']">
+            <img src={ASSETS.lookImageMobile} alt="Look" className="w-[251px] max-w-full h-auto object-cover" />
+            <span className="max-w-[304px] w-full text-center text-black text-[22px] sm:text-[27px] font-normal font-['Source_Sans_3']">
               Embrace simple techniques that enhance your natural beauty. Check these Playlists.
             </span>
             <div className="self-stretch inline-flex flex-col justify-start items-start gap-2">
               <MobilePlaylistButton icon={ASSETS.hairstylesMobileIcon} label="Hairstyles" />
               <MobilePlaylistButton icon={ASSETS.beautyTipsMobileIcon} label="Best Beauty Tips" />
-              <div className="inline-flex justify-start items-center gap-[21px]">
+              <div className="inline-flex flex-wrap justify-start items-center gap-2 sm:gap-[21px]">
                 <MobilePlaylistButton icon={ASSETS.wardrobeMobileIcon} label="wardrobe" />
                 <MobilePlaylistButton icon={ASSETS.makeupMobileIcon} label="Makeup" />
               </div>
@@ -2053,8 +1977,8 @@ export default function Home() {
           {/* ACT card */}
           <div className="self-stretch px-6 py-[39px] bg-[#939393] flex flex-col justify-start items-center gap-[27px]">
             <span className="text-center text-black text-[32px] font-bold font-['Source_Sans_3']">ACT</span>
-            <img src={ASSETS.actImageMobile} alt="Act" className="w-[241px] h-[241px] object-cover" />
-            <span className="w-[304px] text-center text-black text-[32px] font-normal font-['Source_Sans_3']">
+            <img src={ASSETS.actImageMobile} alt="Act" className="w-[241px] max-w-full h-auto object-cover" />
+            <span className="max-w-[304px] w-full text-center text-black text-[24px] sm:text-[32px] font-normal font-['Source_Sans_3']">
               Move and interact with confident posture, purposeful body language and facial expression to polish strong
             </span>
             <div className="flex flex-col justify-center items-center gap-5">
@@ -2064,9 +1988,9 @@ export default function Home() {
           {/* SPEAK card */}
           <div className="self-stretch px-6 py-[39px] bg-[#939393] flex flex-col justify-center items-center gap-2.5">
             <span className="text-center text-black text-[32px] font-bold font-['Source_Sans_3']">SPEAK</span>
-            <img src={ASSETS.speakImageMobile} alt="Speak" className="w-[249px] h-[249px] object-cover" />
+            <img src={ASSETS.speakImageMobile} alt="Speak" className="w-[249px] max-w-full h-auto object-cover" />
             <div className="py-4 inline-flex justify-center items-center gap-2.5">
-              <span className="w-[304px] text-center text-black text-[32px] font-normal font-['Source_Sans_3']">
+              <span className="max-w-[304px] w-full text-center text-black text-[24px] sm:text-[32px] font-normal font-['Source_Sans_3']">
                 Stretch and strengthen your voice with simple, fun exercises<br />
                 These techniques enhance vocal clarity, ensuring your voice commands attention
               </span>
@@ -2076,10 +2000,10 @@ export default function Home() {
             </div>
           </div>
           {/* THINK card */}
-          <div className="self-stretch px-[71px] py-[39px] bg-[#939393] flex flex-col justify-start items-center gap-[34px]">
+          <div className="self-stretch px-4 sm:px-[71px] py-[39px] bg-[#939393] flex flex-col justify-start items-center gap-[34px]">
             <span className="text-center text-black text-[32px] font-bold font-['Source_Sans_3']">THINK</span>
-            <img src={ASSETS.thinkImageMobile} alt="Think" className="w-[249px] h-[249px] object-cover" />
-            <span className="w-[304px] text-center text-black text-[32px] font-normal font-['Source_Sans_3']">
+            <img src={ASSETS.thinkImageMobile} alt="Think" className="w-[249px] max-w-full h-auto object-cover" />
+            <span className="max-w-[304px] w-full text-center text-black text-[24px] sm:text-[32px] font-normal font-['Source_Sans_3']">
               Master your wisdom, character and interactions by cultivating positive thoughts and overcoming limited beliefs
             </span>
             <div className="flex flex-col justify-center items-center gap-5">
@@ -2089,23 +2013,14 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="w-[368px] text-center text-black text-2xl font-normal" style={{ fontFamily: "Inter, sans-serif" }}>
+        <div className="max-w-[368px] w-full px-4 text-center text-black text-lg sm:text-2xl font-normal" style={{ fontFamily: "Inter, sans-serif" }}>
           Visual Polish, Vocal Power, Personal Strength &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Master Your Authenticity—Start Today!
         </div>
       </section>
 
       <div id="about" style={{ scrollMarginTop: "120px" }} />
       {/* ── Meet Sharon Section — scaled desktop layout sized to its content ── */}
-      <div className="w-full hidden xl:block relative overflow-hidden" style={{ height: Math.ceil(aboutDesktopHeight * (typeof window !== "undefined" ? Math.min(1, window.innerWidth / 1920) : 1)) }}>
-        <section
-          ref={aboutDesktopRef}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "1920px",
-            transform: "scale(min(1, calc(100vw / 1920)))",
-            transformOrigin: "top left",
+      <ScaledSection className="overflow-hidden" style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-start",
@@ -2384,8 +2299,7 @@ export default function Home() {
             {/* gallery-links: collapsible dropdowns */}
             <DesktopGalleryDropdowns />
           </div>
-        </section>
-      </div>
+      </ScaledSection>
 
       {/* Mobile About Sharon */}
       <section className="w-full xl:hidden">
@@ -2397,21 +2311,21 @@ export default function Home() {
       </section>
 
       {/* ── Glimpse Behind the Scenes Section ── */}
-      <section className="w-full max-w-[1302px] mx-auto pt-[76px] pb-[55px] hidden md:flex flex-col justify-start items-center gap-[42px]">
+      <section className="w-full max-w-[1302px] mx-auto pt-[76px] pb-[55px] hidden md:flex flex-col justify-start items-center gap-[42px] px-4 overflow-hidden">
         <div className="p-2.5 flex flex-col justify-start items-start gap-[5px] overflow-hidden">
-          <div className="self-stretch px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-8xl font-normal font-['Italianno']">Glimpse Behind the Scenes</span>
+          <div className="self-stretch px-4 lg:px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="text-center text-black text-6xl lg:text-8xl font-normal font-['Italianno']">Glimpse Behind the Scenes</span>
           </div>
-          <div className="self-stretch px-[42px] py-[13px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
-            <span className="text-center text-black text-[40px] leading-[50px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Where Art Transforms</span>
+          <div className="self-stretch px-4 lg:px-[42px] py-[13px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
+            <span className="text-center text-black text-[28px] lg:text-[40px] leading-[36px] lg:leading-[50px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>Where Art Transforms</span>
           </div>
         </div>
         <div className="self-stretch flex flex-col justify-start items-center gap-[86px]">
-          <div className="w-[1046px] h-[524px] p-2.5 flex flex-col justify-start items-start gap-2.5">
+          <div className="w-full max-w-[1046px] p-2.5 flex flex-col justify-start items-start gap-2.5">
             <img
               src={ASSETS.collageDesktop}
               alt="Behind the Scenes Collage"
-              className="self-stretch h-[581px] object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+              className="self-stretch h-auto max-h-[581px] object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
               onClick={() => setExpandedImage(ASSETS.collageDesktop)}
             />
           </div>
@@ -2427,15 +2341,15 @@ export default function Home() {
       </section>
 
       {/* Mobile Behind the Scenes */}
-      <section className="w-full xl:hidden pt-12 pb-6 flex flex-col justify-start items-start gap-[69px]">
-        <div className="self-stretch flex flex-col justify-start items-start gap-[21px]">
+      <section className="w-full xl:hidden pt-12 pb-6 flex flex-col justify-start items-start gap-[69px] overflow-hidden">
+        <div className="self-stretch flex flex-col justify-start items-start gap-[21px] px-4">
           <div className="self-stretch flex flex-col justify-center items-center gap-2.5">
-            <span className="w-[378px] text-center text-black text-[64px] font-normal font-['Italianno']">
+            <span className="max-w-[378px] w-full text-center text-black text-[48px] sm:text-[64px] font-normal font-['Italianno']">
               Glimpse Behind the Scenes
             </span>
           </div>
           <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-            <span className="flex-1 text-center text-black text-[40px] leading-[50px] font-normal font-['Source_Sans_3']">Where Art Transforms</span>
+            <span className="flex-1 text-center text-black text-[28px] sm:text-[40px] leading-[36px] sm:leading-[50px] font-normal font-['Source_Sans_3']">Where Art Transforms</span>
           </div>
         </div>
         <div className="self-stretch flex flex-col justify-start items-center gap-px">

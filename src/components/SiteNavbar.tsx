@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
 const LOGO_URL =
@@ -39,6 +39,14 @@ const NAVBAR_BG = `
 
 export function SiteNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [navScale, setNavScale] = useState(1);
+
+  useEffect(() => {
+    const updateScale = () => setNavScale(Math.min(1, window.innerWidth / 1920));
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, link: NavLink) => {
     if (link.external || !link.targetId || typeof window === "undefined") {
@@ -70,7 +78,7 @@ export function SiteNavbar() {
       <div
         className="w-full hidden xl:block"
         style={{
-          height: "calc(108px * min(1, calc(100vw / 1920)))",
+          height: `${108 * navScale}px`,
           overflow: "hidden",
           flexShrink: 0,
         }}
@@ -80,7 +88,7 @@ export function SiteNavbar() {
             width: "1920px",
             height: "108px",
             transformOrigin: "top left",
-            transform: "scale(min(1, calc(100vw / 1920)))",
+            transform: `scale(${navScale})`,
             display: "flex",
             flexDirection: "row",
             alignItems: "center",
@@ -140,8 +148,8 @@ export function SiteNavbar() {
                 style={{
                   fontFamily: "'Source Sans 3', 'Source Sans Pro', Helvetica, Arial, sans-serif",
                   fontWeight: 400,
-                  fontSize: "26px",
-                  lineHeight: "31px",
+                  fontSize: "34px",
+                  lineHeight: "40px",
                   color: "#FFFFFF",
                   filter: "drop-shadow(0px 4px 4px rgba(0,0,0,0.25))",
                   whiteSpace: "nowrap",
