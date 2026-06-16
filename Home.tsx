@@ -29,7 +29,7 @@ const ASSETS = {
   sharonHero: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/81-436_a928ba59.webp",
   heroMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-3_a429c158.webp",
   // Blogcast
-  blogcastAuthor: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/81-436_a928ba59.webp",
+  blogcastAuthor: "/assets/blogcast-image-showcase.png",
   newTag: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/84-444_91d05244.webp",
   readIcon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/75-402_6a012431.webp",
   listenIcon: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/75-407_26aece65.webp",
@@ -640,7 +640,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.readIcon} alt="Read" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Read</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "356px", height: "96px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "30px", lineHeight: "36px", textAlign: "center", color: "#000000", width: "356px", height: "96px" }}>
                     Deep dives into beauty myths, practical advice, and inspiring stories
                   </span>
                 </div>
@@ -658,7 +658,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.listenIcon} alt="Listen" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Listen</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "354px", height: "96px", padding: "0px 6px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "30px", lineHeight: "36px", textAlign: "center", color: "#000000", width: "354px", height: "96px", padding: "0px 6px" }}>
                     Empowering conversations on personal growth, wisdom, and holistic health
                   </span>
                 </div>
@@ -676,7 +676,7 @@ export default function Home() {
                 >
                   <img src={ASSETS.watchIcon} alt="Watch" style={{ width: "80px", height: "80px" }} />
                   <span style={{ fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif", fontWeight: 700, fontSize: "40px", lineHeight: "50px", textAlign: "center", color: "#000000" }}>Watch</span>
-                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "25px", lineHeight: "30px", textAlign: "center", color: "#000000", width: "306px", height: "96px", padding: "0px 12px" }}>
+                  <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontWeight: 400, fontSize: "30px", lineHeight: "36px", textAlign: "center", color: "#000000", width: "306px", height: "96px", padding: "0px 12px" }}>
                     Visual tutorials and real talk about living with strength and grace
                   </span>
                 </div>
@@ -987,8 +987,8 @@ export default function Home() {
                   alignItems: "flex-start",
                   padding: "28px 0px",
                   gap: "33px",
-                  width: "553px",
-                  height: "179px",
+width: "553px",
+                  height: "auto",
                 }}
               >
                 <a href="/submission.html">
@@ -1009,24 +1009,59 @@ export default function Home() {
                     Here’s how to submit your photo →
                   </span>
                 </a>
-                <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTsFFV48yAw0NwTkr69NjcZU" target="_blank" rel="noopener noreferrer">
-                  <span
-                    style={{
-                      fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
-                      fontWeight: 700,
-                      fontSize: "36px",
-                      lineHeight: "45px",
-                      textAlign: "center",
-                      textDecoration: "underline",
-                      color: "#FFFFFF",
-                      width: "553px",
-                      display: "block",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Digital &amp; Live Video Make-Betters →
-                  </span>
-                </a>
+<div style={{ display: "flex", flexDirection: "column", gap: "20px", paddingLeft: "55px" }}>
+                  <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTsFFV48yAw0NwTkr69NjcZU" target="_blank" rel="noopener noreferrer">
+                    <span
+                      style={{
+                        fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                        fontWeight: 700,
+                        fontSize: "32px",
+                        lineHeight: "40px",
+                        textAlign: "left",
+                        textDecoration: "underline",
+                        color: "#FFFFFF",
+                        display: "block",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Make-Betters #1 →
+                    </span>
+                  </a>
+                  <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTsbNzY7oUesbzH7epndll4u" target="_blank" rel="noopener noreferrer">
+                    <span
+                      style={{
+                        fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                        fontWeight: 700,
+                        fontSize: "32px",
+                        lineHeight: "40px",
+                        textAlign: "left",
+                        textDecoration: "underline",
+                        color: "#FFFFFF",
+                        display: "block",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Make-Betters #2 →
+                    </span>
+                  </a>
+                  <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTubQSQrsyWt2aaY1S4KO1DT" target="_blank" rel="noopener noreferrer">
+                    <span
+                      style={{
+                        fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
+                        fontWeight: 700,
+                        fontSize: "32px",
+                        lineHeight: "40px",
+                        textAlign: "left",
+                        textDecoration: "underline",
+                        color: "#FFFFFF",
+                        display: "block",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Celebrity Make-Betters #3 →
+                    </span>
+                  </a>
+                </div>
               </div>
             </div>
 

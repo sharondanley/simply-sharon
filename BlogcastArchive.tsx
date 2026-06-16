@@ -98,7 +98,7 @@ export default function BlogcastArchive() {
   return (
     <SiteLayout background="#fff" includeFooter={true}>
       <ScaledPage watchKey={`${posts.length}-${loading}-${page}-${totalPages}-${selectedMonth}-${selectedYear}`}>
-        <div style={{ width: 1920 }}>
+        <div style={{ width: 1910 }}>
           <style>{`
             .blogcast-action-pill {
               padding: 14px 39px;
@@ -167,7 +167,7 @@ export default function BlogcastArchive() {
           <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 0, paddingTop: 10 }}>
 
             {/* Search area */}
-            <div style={{ width: 1920, minHeight: 276, paddingTop: 20, paddingBottom: 20, background: "#4d4d4d", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 36 }}>
+            <div style={{ width: 1910, minHeight: 276, paddingTop: 20, paddingBottom: 20, background: "#4d4d4d", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 36 }}>
               <div style={{ paddingTop: 8, paddingBottom: 8 }}>
                 <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 48, lineHeight: "56px", fontWeight: 400, color: "#fff", textAlign: "center" as const, maxWidth: "100%" }}>Search the Knowledge Base</span>
               </div>

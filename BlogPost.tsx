@@ -225,7 +225,7 @@ function renderBlock(block: BlogBlock, index: number) {
     default: {
       const fontSize = Math.max(12, Math.min(72, Math.round(block.fontSize ?? 36)));
       return (
-        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "10px 116px" }}>
+        <div key={block.id || index} style={{ alignSelf: "stretch", padding: "7px 116px" }}>
           <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: block.textColor || "#000", marginLeft: `${clampParagraphIndentLevel(block.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: block.content || "" }} />
         </div>
       );
@@ -374,7 +374,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
         }
       `}</style>
       <ScaledPage watchKey={`${post?.id || "missing"}-${loading}-${bodyBlocks.length}`}>
-        <div style={{ width: "1920px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "43px" }}>
+        <div style={{ width: "1780px", background: "#FFFFFF", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 135px 80px", gap: "33px" }}>
           <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "14px", paddingTop: "20px" }}>
             {canReturnToAdmin && (
               <a
@@ -423,7 +423,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                 <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "36px", lineHeight: "45px", fontWeight: 700, color: "#000", textAlign: "center" }}>Beauty · Wellness · Wisdom</span>
               </div>
               <div style={{ alignSelf: "stretch", padding: "46px 10px 0", display: "flex", justifyContent: "center" }}>
-                <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "64px", lineHeight: "80px", fontWeight: 700, color: "#000", textAlign: "center" }}>{post?.title || "Loading post..."}</span>
+                <span style={{ fontFamily: "'Source Sans Pro', sans-serif", fontSize: "64px", lineHeight: "80px", fontWeight: 700, color: "#000", textAlign: "center", maxWidth: (post?.title?.length || 0) > 25 ? "800px" : "100%", display: "inline-block" }}>{post?.title || "Loading post..."}</span>
               </div>
             </div>
             <div style={{ padding: "36px 10px" }}>
