@@ -451,8 +451,7 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "28px" }}>
                 <div style={{ padding: "10px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                   <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
-                    <span>{publishedLabel}</span>
-                    {post.episode !== null && post.episode !== undefined && String(post.episode).trim() !== "" ? <><span style={{ color: "#111827", fontStyle: "normal" }}> | </span><span>{`Ep ${post.episode}`}</span></> : ""}
+                    {post.episode !== null && post.episode !== undefined && String(post.episode).trim() !== "" ? <span>{`Ep #${post.episode} - ${publishedLabel}`}</span> : <span>{publishedLabel}</span>}
                   </div>
                   <div style={{ marginTop: "10px", fontFamily: "Helvetica, Arial, sans-serif", fontSize: "32px", lineHeight: "40px", color: "#6b7280", fontWeight: 400, fontStyle: "italic" }}>
                     {`By: ${authorLine}`}

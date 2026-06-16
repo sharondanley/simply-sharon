@@ -212,6 +212,7 @@ async function saveContentBlocks(postId, blocks) {
 }
 
 async function ensurePostsMetadataColumns() {
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS subtitle VARCHAR(500) NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS topic VARCHAR(255) NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS episode INT NULL');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS hashtags LONGTEXT NULL');
@@ -221,6 +222,7 @@ async function ensurePostsMetadataColumns() {
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_read_button TINYINT(1) NOT NULL DEFAULT 1');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_listen_button TINYINT(1) NOT NULL DEFAULT 1');
     await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS show_watch_button TINYINT(1) NOT NULL DEFAULT 1');
+    await dbPromise.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS author_id INT NULL');
 }
 
 async function fetchAdminPostById(id) {
