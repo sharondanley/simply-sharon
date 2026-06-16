@@ -150,8 +150,8 @@ function renderBlock(block: BlogBlock, index: number) {
       const columns = getGridColumnCount(block);
       const gridTemplateColumns = getCustomGridTemplateColumns(block, cells);
       return (
-        <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
-          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns, gap: "4px", alignItems: "start", justifyContent: "start", justifyItems: "start", width: "100%" }}>
+        <div key={block.id || index} style={{ width: "100%", padding: "0 116px", boxSizing: "border-box" }}>
+          <div className="blog-post-custom-grid" style={{ display: "grid", gridTemplateColumns, gap: "10px", alignItems: "start", width: "100%" }}>
             {cells.map((cell) => {
               const fontSize = Math.max(12, Math.min(72, Math.round(cell.fontSize ?? 36)));
               return (
@@ -160,7 +160,7 @@ function renderBlock(block: BlogBlock, index: number) {
                     <div className="blog-post-rich-text" style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.35)}px`, color: cell.textColor || "#111827", marginLeft: `${clampParagraphIndentLevel(cell.indentLevel) * INDENT_STEP_PX}px` }} dangerouslySetInnerHTML={{ __html: cell.content || "" }} />
                   ) : cell.url ? (
                     <>
-                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "auto" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "100%" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "flex-start", display: "block", marginRight: 0, filter: IMAGE_DROP_SHADOW }} />
+                      <img src={cell.url} alt={cell.caption || "Grid image"} style={{ width: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "auto" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, maxWidth: clampGridImageWidthPercent(cell.imageWidthPercent) >= 100 ? "100%" : `${clampGridImageWidthPercent(cell.imageWidthPercent)}%`, height: "auto", maxHeight: cell.contentType === "thumbnail" ? "360px" : "640px", objectFit: "contain", alignSelf: "flex-end", display: "block", marginLeft: "auto", filter: IMAGE_DROP_SHADOW }} />
                       {cell.caption ? (
                         <span style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: "24px", lineHeight: "30px", color: "#6B7280" }}>{cell.caption}</span>
                       ) : null}
@@ -181,7 +181,7 @@ function renderBlock(block: BlogBlock, index: number) {
       const [imageCell, paragraphCell] = ensureGridCells({ ...block, grid: { rows: 1, columns: 2 } });
       const paragraphFontSize = Math.max(12, Math.min(72, Math.round(paragraphCell.fontSize ?? 36)));
       return (
-        <div key={block.id || index} style={{ width: "1650px", padding: "0 116px" }}>
+        <div key={block.id || index} style={{ width: "100%", padding: "0 116px", boxSizing: "border-box" }}>
           <div className="blog-post-media-text" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: "28px", alignItems: "start" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               {imageCell.url ? (
