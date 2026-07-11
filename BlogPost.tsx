@@ -463,8 +463,8 @@ export default function BlogPost({ slug, id }: { slug?: string; id?: number }) {
                   </div>
                 ) : null}
               </div>
-                  <div style={{ width: "372px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "100px" }}>
-                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "372px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", filter: IMAGE_DROP_SHADOW }} />
+                  <div style={{ width: "330px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", paddingTop: "100px" }}>
+                <img src={post.thumbnailUrl || ASSETS.sharonPortrait} alt={post.title} style={{ width: "330px", height: "auto", maxHeight: "640px", objectFit: "contain", display: "block", filter: IMAGE_DROP_SHADOW }} />
               </div>
             </div>
           </div>
