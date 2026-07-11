@@ -61,10 +61,10 @@ const ASSETS = {
   collageDesktop: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/106-400_fadc236a.webp",
   collageMobile: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/1-253_1c63c9e9.webp",
   // LAST-ing Impressions YouTube screenshots
-  lastingYt1: "/lasting-yt1-custom.png",
-  lastingYt2: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt2_f83b8dd6.webp",
-  lastingYt3: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt3_82a05891.webp",
-  lastingYt4: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt4_9edd7bbb.webp",
+  lastingYt1: "/lasting-yt-A.png",
+  lastingYt2: "/lasting-yt-B.png",
+  lastingYt3: "/lasting-yt-C.png",
+  lastingYt4: "/lasting-yt-D.png",
   lastingYt5: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/lasting-yt5_c6955cff.webp",
   // LAST-ing Impressions showcase images (desktop)
   lookImage: "https://d2xsxph8kpxj0f.cloudfront.net/310519663293754909/S7VRvsAR3NFvJQTWWaYkyz/96-126_b2845828.webp",
@@ -1895,9 +1895,9 @@ width: "553px",
             >
                             {[
                 { src: ASSETS.lastingYt1, w: 901, h: 499, alt: "Simply Sharon YouTube Channel" },
-                { src: ASSETS.lastingYt3, w: 903, h: 387, alt: "Makeup Techniques, Eye Training, Make-Betters" },
-                { src: "/Last section.png", w: 902, h: 205, alt: "Last section" },
-                { src: ASSETS.lastingYt5, w: 902, h: 457, alt: "Hybrid Timeless Interactive Lives" },
+                { src: ASSETS.lastingYt2, w: 901, h: 430, alt: "Blogcast, Perspective, Beauty Brief, Shorts" },
+                { src: ASSETS.lastingYt3, w: 901, h: 453, alt: "Everything Hair & Style and Presence" },
+                { src: ASSETS.lastingYt4, w: 901, h: 196, alt: "Hybrid Timeless Interactive Lives" },
               ].map(({ src, w, h, alt }) => (
                 <a
                   key={src}
@@ -2228,9 +2228,9 @@ width: "553px",
                   alt="Sharon Danley"
                   style={{
                     position: "absolute",
-                    width: "366px",
-                    height: "866px",
-                    left: "0px",
+                    width: "300px",
+                    height: "666px",
+                    left: "66px",
                     objectFit: "cover",
                   }}
                 />

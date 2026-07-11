@@ -69,11 +69,11 @@ export function SiteFooter() {
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "32px", paddingLeft: "100px" }}>
-                  <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "29px" }}>
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "85px" }}>
                     <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Email:</span>
                     <a href={emailHref} style={{ ...helvetica36, textDecoration: "underline" }}>{email}</a>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "29px" }}>
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "40px" }}>
                     <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>YouTube:</span>
                     <a href="https://www.youtube.com/@SimplySharonTips/featured" target="_blank" rel="noopener noreferrer" style={{ ...helvetica36, textDecoration: "underline" }}>Youtube.com/@SimplySharonTips</a>
                   </div>
