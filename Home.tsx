@@ -331,7 +331,7 @@ export default function Home() {
           justifyContent: "center",
           alignItems: "center",
           paddingTop: "0px",
-          paddingBottom: "109px",
+          paddingBottom: "20px",
           gap: "60px",
         }}
       >
@@ -404,7 +404,7 @@ export default function Home() {
                 Meaningful Aging{" "}
                 <span
                   style={{
-                    fontSize: "35px",
+                    fontSize: "44px",
                     lineHeight: 1,
                     display: "inline-block",
                     verticalAlign: "baseline",
@@ -412,7 +412,7 @@ export default function Home() {
                 >
                   with
                 </span><br />
-                Simplicity, Strength, Style <span style={{ fontSize: "35px", display: "inline-block", verticalAlign: "baseline" }}>&amp;</span> Grace
+                Simplicity, Strength, Style <span style={{ fontSize: "44px", display: "inline-block", verticalAlign: "baseline" }}>&amp;</span> Grace
               </p>
             </div>
 
@@ -479,7 +479,7 @@ export default function Home() {
       <div id="blogcast" style={{ scrollMarginTop: "120px" }} />
       {/* ── Blogcast Section ── */}
       {/* Desktop Blogcast — 1920px wide, scales like navbar */}
-      <ScaledSection designHeight={1286} style={{
+      <ScaledSection designHeight={1200} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -539,6 +539,7 @@ export default function Home() {
                 gap: "10px",
                 width: "918px",
                 height: "86px",
+                marginTop: "-50px",
               }}
             >
               <span
@@ -569,6 +570,7 @@ export default function Home() {
               gap: "15px",
               width: "1162px",
               height: "120px",
+              marginTop: "-60px",
             }}
           >
             <span
@@ -581,6 +583,8 @@ export default function Home() {
                 color: "#000000",
                 width: "1036px",
                 height: "100px",
+                marginTop: "-47px",
+                display: "block",
               }}
             >
                             Thoughtful explorations of beauty, wellness and wisdom for confident aging — in the format that works for you
@@ -840,12 +844,11 @@ export default function Home() {
       <div id="make-betters" style={{ scrollMarginTop: "120px" }} />
       {/* ── Pay-Forward Digital Make-Betters Section ── */}
       {/* Desktop Make-Betters — 1920px wide, scales like navbar */}
-      <ScaledSection designHeight={1554} style={{
+      <ScaledSection designHeight={1580} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
             alignItems: "center",
-            paddingTop: "53px",
             paddingBottom: "91px",
             paddingLeft: "42px",
             gap: "89px",
@@ -912,6 +915,8 @@ export default function Home() {
                   textAlign: "center",
                   color: "#FFFFFF",
                   width: "1201px",
+                  marginTop: "-40px",
+                  display: "block",
                 }}
               >
                 Enhance Your Natural Beauty
@@ -1098,11 +1103,11 @@ width: "553px",
 
       {/* ── Real Life Make-Betters Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <ScaledSection designHeight={2381} style={{
+      <ScaledSection designHeight={2300} style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: "47px 202px",
+            padding: "0px 202px 47px",
             background: "linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 40%, #3a3535 70%, #4a3f3f 100%)",
           }}
         >
@@ -1344,11 +1349,11 @@ width: "553px",
 
       {/* ── Gray is Gorgeous Section ── */}
       {/* Desktop: 1920px wide, scales like other sections */}
-      <ScaledSection designHeight={2529} style={{
+      <ScaledSection designHeight={2350} style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: "87px 0px 95px",
+            padding: "0px",
             gap: "80px",
             background: "linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 40%, #3a3535 70%, #4a3f3f 100%)",
           }}
@@ -1430,6 +1435,7 @@ width: "553px",
               gap: "10px",
               width: "1033px",
               height: "600px",
+              marginTop: "-60px",
             }}
           >
             <div
@@ -1478,11 +1484,11 @@ width: "553px",
             />
           </div>
 
-          {/* section-paragraph: 1920×380px */}
+          {/* section-paragraph: 1256px wide */}
           <div
             style={{
-              alignSelf: "stretch",
-              padding: "10px 192px",
+              width: "1256px",
+              padding: "10px 0px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
@@ -1694,7 +1700,7 @@ width: "553px",
       <div id="poise" style={{ scrollMarginTop: "120px" }} />
       {/* ── Create Positive LAST-ing Impressions Section ── */}
       {/* Desktop: LAST-ing Impressions — Figma 1920×3050px, bg #D4D4D4, scale transform */}
-      <ScaledSection designHeight={2500} style={{
+      <ScaledSection designHeight={2410} style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
@@ -1778,6 +1784,7 @@ width: "553px",
               alignItems: "center",
               gap: "30px",
               width: "1846px",
+              marginTop: "-50px",
             }}
           >
             <p
@@ -1957,13 +1964,13 @@ width: "553px",
               justifyContent: "center",
               alignItems: "center",
               gap: "10px",
-              width: "1189px",
+              width: "1000px",
               marginTop: "-65px",
             }}
           >
             <p
               style={{
-                width: "1169px",
+                width: "980px",
                 fontFamily: "Helvetica, Arial, sans-serif",
                 fontWeight: 700,
                 fontSize: "40px",
@@ -2113,14 +2120,15 @@ width: "553px",
                 alignItems: "center",
                 gap: "10px",
                 overflow: "hidden",
+                marginTop: "-20px",
               }}
             >
               <span
                 style={{
                   fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
                   fontWeight: 400,
-                  fontSize: "40px",
-                  lineHeight: "50px",
+                  fontSize: "48px",
+                  lineHeight: "60px",
                   textAlign: "center",
                   color: "#FFFFFF",
                 }}
@@ -2346,7 +2354,7 @@ width: "553px",
       </section>
 
       {/* ── Glimpse Behind the Scenes Section ── */}
-      <section className="w-full max-w-[1302px] mx-auto pt-[76px] pb-[55px] hidden md:flex flex-col justify-start items-center gap-[42px] px-4 overflow-hidden">
+      <section className="w-full max-w-[1302px] mx-auto pb-[55px] hidden md:flex flex-col justify-start items-center gap-[42px] px-4 overflow-hidden">
         <div className="p-2.5 flex flex-col justify-start items-start gap-[5px] overflow-hidden">
           <div className="self-stretch px-4 lg:px-[156px] inline-flex justify-center items-center gap-2.5 overflow-hidden">
             <span className="text-center text-black text-6xl lg:text-8xl font-normal font-['Italianno']">Glimpse Behind the Scenes</span>
@@ -2366,6 +2374,7 @@ width: "553px",
           </div>
           <button
             className="p-2.5 inline-flex justify-center items-center gap-2.5"
+            style={{ marginTop: "-50px" }}
             onClick={() => setExpandedImage(ASSETS.collageDesktop)}
           >
             <span className="text-center text-[#4e4e4e] text-[32px] font-normal" style={{ fontFamily: "Helvetica, Arial, sans-serif" }}>

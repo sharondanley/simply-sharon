@@ -11,6 +11,7 @@ export function ScaledSection({
   className = "",
   id,
   style,
+  wrapperStyle,
 }: {
   children: ReactNode;
   designWidth?: number;
@@ -18,6 +19,7 @@ export function ScaledSection({
   className?: string;
   id?: string;
   style?: React.CSSProperties;
+  wrapperStyle?: React.CSSProperties;
 }) {
   const innerRef = useRef<HTMLElement>(null);
   const [scale, setScale] = useState(1);
@@ -58,7 +60,7 @@ export function ScaledSection({
     <div
       id={id}
       className={`w-full hidden xl:block relative ${className}`}
-      style={{ height: `${wrapperHeight}px`, overflow: "hidden" }}
+      style={{ height: `${wrapperHeight}px`, overflow: "hidden", ...wrapperStyle }}
     >
       <section
         ref={innerRef}

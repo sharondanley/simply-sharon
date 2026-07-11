@@ -137,6 +137,7 @@ export function SiteNavbar() {
               alignItems: "center",
               gap: "26px",
               height: "108px",
+              marginLeft: "380px",
             }}
           >
             {NAV_LINKS.map((link) => (

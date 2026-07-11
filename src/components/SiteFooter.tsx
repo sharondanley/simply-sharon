@@ -81,6 +81,10 @@ export function SiteFooter() {
                     <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Instagram:</span>
                     <a href="https://www.instagram.com/danleysharon" target="_blank" rel="noopener noreferrer" style={{ ...helvetica36, textDecoration: "underline" }}>https://www.instagram.com/danleysharon</a>
                   </div>
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "40px" }}>
+                    <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Substack:</span>
+                    <a href="https://sharondanley.substack.com" target="_blank" rel="noopener noreferrer" style={{ ...helvetica36, textDecoration: "underline" }}>https://sharondanley.substack.com</a>
+                  </div>
                   <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "29px" }}>
                     <span style={{ ...helvetica36, whiteSpace: "nowrap" }}>Facebook:</span>
                     <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
