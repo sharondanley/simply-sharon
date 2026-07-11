@@ -1692,7 +1692,7 @@ width: "553px",
       </section>
 
       <div id="poise" style={{ scrollMarginTop: "120px" }} />
-      {/* ── Enjoy Positive LAST-ing Impressions Section ── */}
+      {/* ── Create Positive LAST-ing Impressions Section ── */}
       {/* Desktop: LAST-ing Impressions — Figma 1920×3050px, bg #D4D4D4, scale transform */}
       <ScaledSection designHeight={2500} style={{
             display: "flex",
@@ -1738,7 +1738,7 @@ width: "553px",
                   color: "#000000",
                 }}
               >
-                Enjoy Positive LAST-ing Impressions
+                Create Positive LAST-ing Impressions
               </span>
             </div>
             {/* section-subtitle */}
@@ -1791,7 +1791,7 @@ width: "553px",
                 margin: 0,
               }}
             >
-              Welcome to a Treasure Trove of Self-Help Beauty, Wellness &amp; Wisdom. Inside this channel you'll find practical guidance on makeup, hair, style, etiquette, and personal presence—designed to help you look your best, feel confident, and present yourself with strength, style &amp; grace.
+              Welcome to a Treasure Trove of Self-Help Beauty, Wellness &amp; Wisdom. Inside this Youtube channel <a href="https://www.youtube.com/@SimplySharonTips" target="_blank" rel="noreferrer" style={{ fontWeight: 700, textDecoration: "underline", color: "inherit" }}>SimplySharonTips</a> you'll find practical guidance on makeup, hair, style, etiquette, and personal presence—designed to help you look your best, feel confident, and present yourself with strength, style &amp; grace.
             </p>
             <p
               style={{
@@ -1983,7 +1983,7 @@ width: "553px",
         <div className="self-stretch flex flex-col justify-start items-start gap-[21px]">
           <div className="self-stretch flex flex-col justify-center items-center gap-2.5 px-4">
             <span className="max-w-[378px] w-full text-center text-black text-[48px] sm:text-[64px] font-normal font-['Italianno']">
-              Enjoy Positive LAST-ing Impressions
+              Create Positive LAST-ing Impressions
             </span>
           </div>
           <div className="self-stretch inline-flex justify-center items-center gap-2.5 px-4">
