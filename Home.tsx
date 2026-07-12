@@ -392,8 +392,8 @@ export default function Home() {
                 style={{
                   fontFamily: "'Source Sans Pro', 'Source Sans 3', sans-serif",
                   fontWeight: 400,
-                  fontSize: "60px",
-                  lineHeight: "75px",
+                  fontSize: "49px",
+                  lineHeight: "60px",
                   color: "#FFFFFF",
                   textAlign: "center",
                   margin: 0,

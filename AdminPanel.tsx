@@ -1970,12 +1970,12 @@ function PostEditor({
               {([
                 {
                   key: "listen" as PostActionKey,
-                  label: "Listen",
+                  label: "Substack",
                   value: listenUrl,
                   setValue: setListenUrl,
                   visible: showListenButton,
                   setVisible: setShowListenButton,
-                  placeholder: "Paste an audio, podcast, or playlist URL",
+                  placeholder: "Paste a Substack article or newsletter URL",
                 },
                 {
                   key: "watch" as PostActionKey,

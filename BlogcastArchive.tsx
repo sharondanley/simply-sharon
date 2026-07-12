@@ -241,8 +241,8 @@ export default function BlogcastArchive() {
                     <div style={{ paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", gap: 108, flexWrap: "wrap" as const }}>
                       {[
                         { icon: A.readBtn, label: "Read", w: 48, h: 48, r: 16, href: post.slug ? `/blogcast/${post.slug}` : `/blog-post/${post.id}`, visible: post.showReadButton !== false },
-                        { icon: A.listenBtn, label: "Listen", w: 43, h: 42, r: 0, href: post.listenUrl?.trim(), visible: post.showListenButton !== false && Boolean(post.listenUrl?.trim()) },
-                        { icon: A.watchBtn, label: "Watch", w: 42, h: 42, r: 0, href: post.watchUrl?.trim(), visible: post.showWatchButton !== false && Boolean(post.watchUrl?.trim()) },
+                        { icon: A.watchBtn, label: "YouTube", w: 42, h: 42, r: 0, href: post.watchUrl?.trim(), visible: post.showWatchButton !== false && Boolean(post.watchUrl?.trim()) },
+                        { icon: A.listenBtn, label: "Substack", w: 43, h: 42, r: 0, href: post.listenUrl?.trim(), visible: post.showListenButton !== false && Boolean(post.listenUrl?.trim()) },
                       ].filter((action) => action.visible && action.href).map(({ icon, label, w, h, r, href }) => {
                         const isRead = label === "Read" && !String(href).startsWith("http");
                         return (
@@ -254,26 +254,7 @@ export default function BlogcastArchive() {
                           </a>
                         );
                       })}
-                      <a href="https://www.youtube.com/playlist?list=PLfJM4fByTgTsUZ3s7CymYp-_p9XYIuaEu" target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-                        <div className="blogcast-action-pill" style={{ background: "#FF0000" }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="34" viewBox="0 0 48 34" fill="none">
-                            <path d="M47.0 5.3C46.5 3.4 45.0 1.9 43.1 1.4C39.3 0.4 24 0.4 24 0.4C24 0.4 8.7 0.4 4.9 1.4C3.0 1.9 1.5 3.4 1.0 5.3C0 9.1 0 17 0 17C0 17 0 24.9 1.0 28.7C1.5 30.6 3.0 32.1 4.9 32.6C8.7 33.6 24 33.6 24 33.6C24 33.6 39.3 33.6 43.1 32.6C45.0 32.1 46.5 30.6 47.0 28.7C48 24.9 48 17 48 17C48 17 48 9.1 47.0 5.3Z" fill="white" fillOpacity="0.9"/>
-                            <path d="M19.2 24.2L31.6 17L19.2 9.8V24.2Z" fill="#FF0000"/>
-                          </svg>
-                          <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#fff" }}>YouTube</span>
-                        </div>
-                      </a>
-                      <a href="https://sharondanley.substack.com" target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-                        <div className="blogcast-action-pill" style={{ background: "#FF6719" }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" fill="none">
-                            <rect width="44" height="44" rx="8" fill="white" fillOpacity="0.15"/>
-                            <path d="M8 10H36V15H8V10Z" fill="white"/>
-                            <path d="M8 18H36V23H8V18Z" fill="white"/>
-                            <path d="M8 26L22 34L36 26V44L22 36L8 44V26Z" fill="white"/>
-                          </svg>
-                          <span style={{ fontFamily: "'Source Sans 3', 'Source Sans Pro', sans-serif", fontSize: 40, fontWeight: 700, color: "#fff" }}>Substack</span>
-                        </div>
-                      </a>
+
                     </div>
                   </div>
                 </div>

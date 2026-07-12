@@ -92,10 +92,23 @@ export function SiteNavbar() {
             display: "flex",
             flexDirection: "row",
             alignItems: "center",
-            padding: "0 60px",
+            justifyContent: "center",
             background: NAVBAR_BG,
           }}
         >
+          {/* Inner content constrained to same 1488px as hero */}
+          <div
+            style={{
+              width: "1288px",
+              maxWidth: "calc(100% - 40px)",
+              height: "108px",
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+          {/* ── Logo ── */}
           <a
             href="/"
             style={{
@@ -128,16 +141,15 @@ export function SiteNavbar() {
             </span>
           </a>
 
+          {/* ── Nav links — adjust marginLeft to move closer/further from logo ── */}
           <div
             style={{
-              flex: 1,
               display: "flex",
               flexDirection: "row",
-              justifyContent: "center",
               alignItems: "center",
               gap: "26px",
               height: "108px",
-              marginLeft: "380px",
+              marginLeft: "0px",   /* ← increase to push links right, decrease (or go negative) to pull left */
             }}
           >
             {NAV_LINKS.map((link) => (
@@ -166,6 +178,7 @@ export function SiteNavbar() {
                 {link.label}
               </a>
             ))}
+          </div>
           </div>
         </div>
       </div>
