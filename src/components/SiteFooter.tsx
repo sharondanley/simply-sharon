@@ -40,7 +40,7 @@ export function SiteFooter() {
         id="connect"
         className="w-full hidden xl:block"
         style={{
-          height: `${1072 * footerScale}px`,
+          height: `${1140 * footerScale}px`,
           overflow: "hidden",
           flexShrink: 0,
         }}
@@ -48,7 +48,7 @@ export function SiteFooter() {
         <div
           style={{
             width: "1920px",
-            height: "1072px",
+            height: "1140px",
             transformOrigin: "top left",
             transform: `scale(${footerScale})`,
             display: "flex",

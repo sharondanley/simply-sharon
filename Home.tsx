@@ -583,7 +583,7 @@ export default function Home() {
                 color: "#000000",
                 width: "1036px",
                 height: "100px",
-                marginTop: "-47px",
+                marginTop: "-20px",
                 display: "block",
               }}
             >
@@ -1731,7 +1731,6 @@ width: "553px",
                 alignItems: "center",
                 gap: "10px",
                 overflow: "hidden",
-                margin: "-24px 0px",
               }}
             >
               <span
